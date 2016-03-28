@@ -1,28 +1,36 @@
 _colors_8 = [
     (0x00, 0x00, 0x00),
-    (0x80, 0x00, 0x00),
-    (0x00, 0x80, 0x00),
-    (0x80, 0x80, 0x00),
-    (0x00, 0x00, 0x80),
-    (0x80, 0x00, 0x80),
-    (0x00, 0x80, 0x80),
-    (0x80, 0x80, 0x80),
+    (0xbb, 0x00, 0x00),
+    (0x00, 0xbb, 0x00),
+    (0xbb, 0xbb, 0x00),
+    (0x00, 0x00, 0xbb),
+    (0xbb, 0x00, 0xbb),
+    (0x00, 0xbb, 0xbb),
+    (0xbb, 0xbb, 0xbb),
 ]
 
 _cube_6 = (0x00, 0x5f, 0x87, 0xaf, 0xd7, 0xff)
 
 
-def term_to_rgb(n, style):
+def term_to_rgb(n, style=None):
     '''Get the R/G/B values for a terminal color index
 
     0 - 15 are the basic colors
     16 - 231 are the 6x6 RGB colors
     232 - 255 are the gray scale colors
     '''
+    if style is None:
+        style = []
+
+    if n < 8 and 1 in style and 22 not in style:
+        n += 8
+    elif n > 7 and 22 in style:
+        n -= 8
+
     if n < 16:
         rgb = _colors_8[n % 8]
-        if n > 7 or 1 in style:
-            return tuple(map(lambda i: min(255, i + 0x80), rgb))
+        if n > 7:
+            return tuple(map(lambda i: min(255, i + 0x55), rgb))
         return rgb
 
     if n < 232:
@@ -56,8 +64,11 @@ def _iter_escape(s):
             print(p)
 
 
-def parse_escape(s, fg=None, bg=None, style=None, default_fg=(255, 255, 255),
-                 default_bg=(0, 0, 0)):
+def parse_escape(s, fg=None, bg=None, style=None):
+    """Parses an escape sequence.
+
+    Not sure if this is very accurate.
+    """
     if style is None:
         style = []
 
