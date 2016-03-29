@@ -8,6 +8,7 @@ import gzip
 import json
 import time
 import argparse
+import unicodedata
 from string import Template
 
 from . import color, utils
@@ -232,26 +233,32 @@ class Renderer(object):
         span that will display the glyph using CSS.  This is to ensure that the
         text has a consistent width.
         """
+        def unisub(m):
+            c = m.group(1)
+            w = 2 if unicodedata.east_asian_width(c) == 'W' else 1
+            if w == 2:
+                self.line_l += 1
+            return '<span class="u" data-glyph="&#x{0:x};">{1}</span>' \
+                .format(ord(c), ' ' * w)
+
         s = escape(s)
-        s = re.sub(r'([\u0080-\uffff])',
-                   lambda x: '<span class="u" data-glyph="&#x{:x};"> </span>'
-                   .format(ord(x.group(1))), s)
+        s = re.sub(r'([\u0080-\uffff])', unisub, s)
         return s
 
-    def _wrap_line(self, line, length, maxlength):
+    def _wrap_line(self, line, maxlength):
         """Wrap a line.
 
         A line is wrapped until it is short enough to fit within the pane.
         """
         line_c = 0
-        while length and length > maxlength:
-            cut = maxlength - length
+        while self.line_l and self.line_l > maxlength:
+            cut = maxlength - self.line_l
             self.chunks.append(self._escape_text(line[:cut]))
             self.chunks.append('\n')
             line = line[cut:]
-            length = len(line)
+            self.line_l = len(line)
             line_c += 1
-        return line_c, length, line
+        return line_c, line
 
     def _render(self, s, size):
         """Render the content.
@@ -267,7 +274,7 @@ class Renderer(object):
         lines = s.split('\n')
         for line_i, line in enumerate(lines):
             last_i = 0
-            line_l = 0
+            self.line_l = 0
             for m in re.finditer(r'\x1b\[([^m]*)m', line):
                 start, end = m.span()
                 c = line[last_i:start]
@@ -276,8 +283,8 @@ class Renderer(object):
                     self.open(cur_fg, cur_bg)
 
                 c_len = len(c)
-                line_l += c_len
-                nl, line_l, c = self._wrap_line(c, line_l, size[0])
+                self.line_l += c_len
+                nl, c = self._wrap_line(c, size[0])
                 line_c += nl
 
                 self.chunks.append(self._escape_text(c))
@@ -296,16 +303,16 @@ class Renderer(object):
 
             c = line[last_i:]
             c_len = len(c)
-            line_l += c_len
+            self.line_l += c_len
 
             pad = ''
             if c or c_len != size[0]:
                 if not self.opened:
                     self.open(cur_fg, cur_bg)
-                nl, line_l, c = self._wrap_line(c, line_l, size[0])
+                nl, c = self._wrap_line(c, size[0])
                 if line_c + nl < size[1]:
                     line_c += nl
-                    pad = ' ' * (size[0] - line_l)
+                    pad = ' ' * (size[0] - self.line_l)
 
             self.chunks.append(self._escape_text(c))
             self.close(closeall=True)
@@ -382,7 +389,8 @@ class Renderer(object):
         self._render_pane(pane)
         return tpl.substitute(panes=''.join(self.chunks),
                               css=self.render_css(), prefix=classname,
-                              script='')
+                              script='', fg=self.rgbhex(self.default_fg),
+                              bg=self.rgbhex(self.default_bg))
 
     def record(self, pane, interval, duration, window=None, session=None):
         panes = []
@@ -441,7 +449,9 @@ class Renderer(object):
         script += script_tpl.substitute(prefix=classname, frames=frames,
                                         interval=interval)
         return tpl.substitute(panes='', css=self.render_css(),
-                              prefix=classname, script=script)
+                              prefix=classname, script=script,
+                              fg=self.rgbhex(self.default_fg),
+                              bg=self.rgbhex(self.default_bg))
 
 
 def color_type(val):
