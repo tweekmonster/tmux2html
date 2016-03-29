@@ -11,6 +11,10 @@ class Layout(object):
         self.vertical = vertical
         self.panes = []
 
+    @property
+    def dimensions(self):
+        return (self.x, self.y) + self.size
+
     def __hash__(self):
         return hash(('layout', self.identifier, self.x, self.y) + self.size)
 

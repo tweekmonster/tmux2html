@@ -105,7 +105,7 @@ class Renderer(object):
 
     def rgbhex(self, c, style=None):
         """Converts a color to hex RGB."""
-        if not c:
+        if c is None:
             return 'none'
         if isinstance(c, int):
             c = color.term_to_rgb(c, style)
@@ -341,10 +341,10 @@ class Renderer(object):
     def _add_separator(self, vertical, size):
         """Add a separator."""
         if vertical:
-            cls = 'v'
+            cls = ''
             rep = '<span class="u ns" data-glyph="&#x2500"> </span>'
         else:
-            cls = 'h'
+            cls = ''
             rep = '<span class="u ns" data-glyph="&#x2502"> </span>\n'
 
         self.chunks.append('<div class="{} sep"><pre>'.format(cls))
@@ -405,20 +405,20 @@ class Renderer(object):
                     break
 
                 frame = {}
-                full_refresh = False
-                pane, new_panes = utils.update_pane_list(pane, window, session)
-                if hash(tuple(panes)) != hash(tuple(new_panes)):
-                    full_refresh = True
+                new_pane, new_panes = utils.update_pane_list(pane, window, session)
+                if hash(pane) != hash(new_pane) or hash(tuple(panes)) != hash(tuple(new_panes)):
+                    changes = {}
                     self.opened = 0
                     self.chunks = []
-                    self.win_size = pane.size
-                    self._render_pane(pane, empty=True)
+                    self.win_size = new_pane.size
+                    self._render_pane(new_pane, empty=True)
                     containers = ''.join(self.chunks[:])
                     frames.append({
                         'reset': True,
                         'layout': containers,
                     })
 
+                pane = new_pane
                 panes = new_panes
                 for p in panes:
                     self.opened = 0
@@ -428,7 +428,7 @@ class Renderer(object):
                                  p.size)
                     add_html = True
                     p_html = ''.join(self.chunks[:])
-                    if not full_refresh and p.identifier in changes \
+                    if p.identifier in changes \
                             and changes[p.identifier] == p_html:
                         add_html = False
 
@@ -463,6 +463,17 @@ def color_type(val):
     raise ValueError('Bad format')
 
 
+def sil_int(val):
+    """Silent int().
+
+    Get it?
+    """
+    try:
+        return int(val)
+    except ValueError:
+        return 0
+
+
 def main():
     parser = argparse.ArgumentParser(description='Render tmux panes as HTML')
     parser.add_argument('target', default='', help='Target window or pane')
@@ -487,10 +498,10 @@ def main():
 
     if window.find('.') != -1:
         window, pane = window.split('.', 1)
-        window = int(window)
-        pane = int(pane)
+        window = sil_int(window)
+        pane = sil_int(pane)
     else:
-        window = int(window)
+        window = sil_int(window)
 
     root = utils.get_layout(window, session)
     target_pane = root

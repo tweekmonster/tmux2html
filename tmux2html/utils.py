@@ -1,3 +1,4 @@
+# coding: utf8
 from __future__ import print_function
 
 import sys
@@ -6,14 +7,14 @@ import subprocess
 from . import tmux_layout
 
 
-def shell_cmd(cmd):
+def shell_cmd(cmd, ignore_error=False):
     """Execute a command.
 
     Exits if the command fails.
     """
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
-    if p.returncode != 0:
+    if not ignore_error and p.returncode != 0:
         print(stderr.decode('utf8'), file=sys.stderr)
         sys.exit(1)
     return stdout.decode('utf8')
@@ -50,15 +51,26 @@ def pane_list(pane, ids=None, list_all=False):
     return ids
 
 
-def update_pane_list(pane, window=None, session=None):
-    root = get_layout(window, session)
+def update_pane_list(pane, window=None, session=None, ignore_error=True):
+    """Updates the pane list.
+
+    This searches for a pane that matches the dimensions of the supplied (old)
+    pane.  When a pane is not split, it will not have panes and the size will
+    take up its entire block.  When it's split, the pane is moved into pane
+    that wraps it and the new split.  The new pane will now take the dimensions
+    of the old pane.  Naïvely matching the pane identifier would result in a
+    shrinking pane when capturing an animation.
+    """
+    root = get_layout(window, session, ignore_error=ignore_error)
     panes2 = pane_list(root, list_all=True)
+
     for p in panes2:
-        if p.identifier == pane.identifier:
+        if p.dimensions == pane.dimensions:
             return p, pane_list(p)
+    return pane, pane_list(pane)
 
 
-def get_layout(window=None, session=None):
+def get_layout(window=None, session=None, ignore_error=False):
     """Get the tmux layout string.
 
     Defaults to the current session and/or current window.
@@ -66,7 +78,7 @@ def get_layout(window=None, session=None):
     cmd = ['tmux', 'list-windows']
     if session is not None:
         cmd.extend(['-t', str(session)])
-    lines = shell_cmd(cmd)
+    lines = shell_cmd(cmd, ignore_error=ignore_error)
     windows = []
     active = None
     for line in lines.strip().split('\n'):
