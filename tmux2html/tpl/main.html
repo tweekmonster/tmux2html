@@ -1,0 +1,50 @@
+<!doctype html>
+<head>
+  <meta charset="utf-8">
+  <title>tmux</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+    .$prefix .pane {
+      display: inline-block;
+    }
+    .$prefix pre {
+      font-size: 10pt;
+      margin: 0;
+      padding: 0;
+    }
+    .$prefix .u {
+      position: relative;
+      display: inline-block;
+      font-size: inherit;
+      color: inherit;
+      background-color: transparent;
+    }
+    .$prefix .u:after {
+      content: attr(data-glyph);
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    .$prefix .v {
+      display: inline-flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      background-color: $bg;
+    }
+    .$prefix .h {
+      display: inline-flex;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      background-color: $bg;
+    }
+    $css
+  </style>
+</head>
+<body>
+<div class="$prefix">$panes</div>
+$script
+</body>

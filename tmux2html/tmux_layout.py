@@ -11,6 +11,13 @@ class Layout(object):
         self.vertical = vertical
         self.panes = []
 
+    def __hash__(self):
+        return hash(('layout', self.identifier, self.x, self.y) + self.size)
+
+    def __eq__(self, other):
+        return isinstance(other, Layout) \
+            and hash(other.identifier) == hash(self.identifier)
+
     def __repr__(self):
         return '{}Layout(id:{} x:{} y:{} size:{} panes:[{}])' \
             .format('Vertical' if self.vertical else 'Horizontal',

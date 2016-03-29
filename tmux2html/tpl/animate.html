@@ -1,0 +1,34 @@
+<script>
+(function() {
+  var frame = 0;
+  var frames = new Uint8Array($frames);
+  frames = JSON.parse(pako.inflate(frames, {'to':'string'}));
+  var interval = $interval;
+
+  function addFrames(frame) {
+    if (frame.reset) {
+      document.querySelector('.$prefix').innerHTML = frame.layout;
+      return false;
+    }
+
+    for (var id in frame) {
+      var container = document.querySelector('#p' + id);
+      container.innerHTML = frame[id];
+    }
+    return true;
+  }
+
+  function nextFrame() {
+    while(true){
+      var advance = addFrames(frames[frame % frames.length]);
+      frame++;
+      if (advance) {
+        break;
+      }
+    };
+    setTimeout(nextFrame, interval * 1000);
+  }
+
+  nextFrame();
+})();
+</script>

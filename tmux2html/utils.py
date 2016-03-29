@@ -35,19 +35,27 @@ def get_contents(target):
     return '\n'.join(lines)
 
 
-def pane_list(pane, ids=None):
+def pane_list(pane, ids=None, list_all=False):
     """Get a list of panes.
 
     This makes it easier to target panes from the command line.
     """
     if ids is None:
         ids = []
-    if pane.identifier != -1:
+    if list_all or pane.identifier != -1:
         ids.append(pane)
     for p in pane.panes:
-        pane_list(p, ids)
+        pane_list(p, ids, list_all=list_all)
 
     return ids
+
+
+def update_pane_list(pane, window=None, session=None):
+    root = get_layout(window, session)
+    panes2 = pane_list(root, list_all=True)
+    for p in panes2:
+        if p.identifier == pane.identifier:
+            return p, pane_list(p)
 
 
 def get_layout(window=None, session=None):

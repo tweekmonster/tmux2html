@@ -1,7 +1,12 @@
 # coding: utf8
 from __future__ import print_function, unicode_literals
 
+import io
+import os
 import re
+import gzip
+import json
+import time
 import argparse
 from string import Template
 
@@ -13,56 +18,18 @@ except ImportError:
     from cgi import escape
 
 
+basedir = os.path.dirname(__file__)
 classname = 'tmux-html'
-tpl = Template('''
-<!doctype html>
-<head>
-  <meta charset="utf-8">
-  <title>tmux</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-    }
-    .$prefix .pane {
-      display: inline-block;
-    }
-    .$prefix pre {
-      font-size: 10pt;
-      margin: 0;
-      padding: 0;
-    }
-    .$prefix .u {
-      position: relative;
-      display: inline-block;
-      font-size: inherit;
-      color: inherit;
-      background-color: transparent;
-    }
-    .$prefix .u:after {
-      content: attr(data-glyph);
-      display: block;
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
-    .$prefix .v {
-      display: inline-flex;
-      flex-direction: column;
-      flex-wrap: nowrap;
-    }
-    .$prefix .h {
-      display: inline-flex;
-      flex-direction: row;
-      flex-wrap: nowrap;
-    }
-    $css
-  </style>
-</head>
-<body>
-<div class="$prefix">$panes</div>
-</body>
-'''.strip())
+
+
+def load_tpl(filename):
+    with open(os.path.join(basedir, 'tpl', filename), 'rt') as fp:
+        return Template(fp.read())
+
+
+tpl = load_tpl('main.html')
+pako = load_tpl('pako.html')
+script_tpl = load_tpl('animate.html')
 
 
 font_stack = (
@@ -351,6 +318,8 @@ class Renderer(object):
             if c or line_i < len(lines) - 1:
                 self.chunks.append('\n')
                 line_c += 1
+            elif pad and line_i == len(lines) - 1:
+                line_c += 1
 
         if line_c < size[1]:
             self.open(None, None, cls='ns')
@@ -377,7 +346,7 @@ class Renderer(object):
         self.close()
         self.chunks.append('</pre></div>')
 
-    def _render_pane(self, pane):
+    def _render_pane(self, pane, empty=False):
         """Recursively render a pane as HTML.
 
         Panes without sub-panes are grouped.  Panes with sub-panes are grouped
@@ -393,14 +362,15 @@ class Renderer(object):
                     self._add_separator(False, p.size[1])
                 if p.y != 0 and p.y > pane.y:
                     self._add_separator(True, p.size[0])
-                self._render_pane(p)
+                self._render_pane(p, empty)
 
             self.chunks.append('</div>')
         else:
             self.chunks.append('<div id="p{}" class="pane" data-size="{}">'
                                .format(pane.identifier, ','.join(map(str, pane.size))))
-            self._render(utils.get_contents('%{}'.format(pane.identifier)),
-                         pane.size)
+            if not empty:
+                self._render(utils.get_contents('%{}'.format(pane.identifier)),
+                             pane.size)
             self.chunks.append('</div>')
 
     def render_pane(self, pane):
@@ -411,13 +381,92 @@ class Renderer(object):
         self.reset_css()
         self._render_pane(pane)
         return tpl.substitute(panes=''.join(self.chunks),
-                              css=self.render_css(), prefix=classname)
+                              css=self.render_css(), prefix=classname,
+                              script='')
+
+    def record(self, pane, interval, duration, window=None, session=None):
+        panes = []
+        frames = []
+        start = time.time()
+        changes = {}
+
+        while True:
+            try:
+                n = time.time()
+                if duration and n - start >= duration:
+                    break
+
+                frame = {}
+                full_refresh = False
+                pane, new_panes = utils.update_pane_list(pane, window, session)
+                if hash(tuple(panes)) != hash(tuple(new_panes)):
+                    full_refresh = True
+                    self.opened = 0
+                    self.chunks = []
+                    self.win_size = pane.size
+                    self._render_pane(pane, empty=True)
+                    containers = ''.join(self.chunks[:])
+                    frames.append({
+                        'reset': True,
+                        'layout': containers,
+                    })
+
+                panes = new_panes
+                for p in panes:
+                    self.opened = 0
+                    self.chunks = []
+                    self.win_size = p.size
+                    self._render(utils.get_contents('%{}'.format(p.identifier)),
+                                 p.size)
+                    add_html = True
+                    p_html = ''.join(self.chunks[:])
+                    if not full_refresh and p.identifier in changes \
+                            and changes[p.identifier] == p_html:
+                        add_html = False
+
+                    if add_html:
+                        changes[p.identifier] = p_html
+                        frame[p.identifier] = p_html
+
+                frames.append(frame)
+                time.sleep(interval)
+            except KeyboardInterrupt:
+                break
+
+        bscript = io.BytesIO()
+        with gzip.GzipFile(fileobj=bscript, mode='w') as fp:
+            fp.write(json.dumps(frames).encode('utf8'))
+        frames = '[{}]'.format(','.join(map(str, list(bscript.getvalue()))))
+        script = pako.safe_substitute()
+        script += script_tpl.substitute(prefix=classname, frames=frames,
+                                        interval=interval)
+        return tpl.substitute(panes='', css=self.render_css(),
+                              prefix=classname, script=script)
+
+
+def color_type(val):
+    parts = tuple(map(int, val.split(',')))
+    if len(parts) == 1:
+        return parts[0]
+    elif len(parts) == 3:
+        return parts
+    raise ValueError('Bad format')
 
 
 def main():
     parser = argparse.ArgumentParser(description='Render tmux panes as HTML')
     parser.add_argument('target', default='', help='Target window or pane')
+    parser.add_argument('-o', '--output', default='', help='Output file')
     parser.add_argument('--light', action='store_true', help='Light background')
+    parser.add_argument('--interval', default=0.5, type=float,
+                        help='Number of seconds between captures')
+    parser.add_argument('--duration', default=-1, type=float,
+                        help='Number of seconds to capture '
+                        '(0 for indefinite, -1 to disable)')
+    parser.add_argument('--fg', type=color_type, default=None,
+                        help='Foreground color')
+    parser.add_argument('--bg', type=color_type, default=None,
+                        help='Background color')
     args = parser.parse_args()
 
     window = args.target
@@ -449,7 +498,26 @@ def main():
     if args.light:
         fg, bg = bg, fg
 
+    if args.fg:
+        fg = args.fg
+    if args.bg:
+        bg = args.bg
+
     r = Renderer(fg, bg)
-    with open('test2.html', 'wb') as fp:
-        fp.write(r.render_pane(target_pane).encode('utf8'))
-        # fp.write(r.render(term_content, term_size))
+    if args.duration != -1:
+        if args.duration == 0:
+            print('Recording indefinitely.  Press Ctrl-C to stop.')
+        else:
+            print('Recording for {:0.2f} seconds.  Press Ctrl-C to stop.'
+                  .format(args.duration))
+        output = r.record(target_pane, args.interval, args.duration, window,
+                          session).encode('utf8')
+    else:
+        output = r.render_pane(target_pane).encode('utf8')
+
+    if args.output:
+        with open(args.output, 'wb') as fp:
+            fp.write(output)
+        print('Wrote HTML to: {}'.format(args.output))
+    else:
+        print(output)
