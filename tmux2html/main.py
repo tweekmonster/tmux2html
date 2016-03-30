@@ -18,6 +18,13 @@ try:
 except ImportError:
     from cgi import escape
 
+try:
+    str_ = unicode
+    py_v = 2
+except NameError:
+    str_ = str
+    py_v = 3
+
 
 basedir = os.path.dirname(__file__)
 classname = 'tmux-html'
@@ -126,7 +133,7 @@ class Renderer(object):
                 color_code += 8
             key = '{0}{1:d}'.format(prefix, color_code)
         else:
-            key = '{0}-rgb_{1}'.format(prefix, '_'.join(map(str, color_code)))
+            key = '{0}-rgb_{1}'.format(prefix, '_'.join(map(str_, color_code)))
 
         self.css[key] = '{0}: {1};'.format(style, self.rgbhex(color_code,
                                                               self.esc_style))
@@ -374,7 +381,7 @@ class Renderer(object):
             self.chunks.append('</div>')
         else:
             self.chunks.append('<div id="p{}" class="pane" data-size="{}">'
-                               .format(pane.identifier, ','.join(map(str, pane.size))))
+                               .format(pane.identifier, ','.join(map(str_, pane.size))))
             if not empty:
                 self._render(utils.get_contents('%{}'.format(pane.identifier)),
                              pane.size)
@@ -444,7 +451,13 @@ class Renderer(object):
         bscript = io.BytesIO()
         with gzip.GzipFile(fileobj=bscript, mode='w') as fp:
             fp.write(json.dumps(frames).encode('utf8'))
-        frames = '[{}]'.format(','.join(map(str, list(bscript.getvalue()))))
+
+        if py_v < 3:
+            frames = '[{}]'.format(','.join([str_(ord(x)) for x in
+                                             bscript.getvalue()]))
+        else:
+            frames = '[{}]'.format(','.join([str_(x) for x in
+                                             bscript.getvalue()]))
         script = pako.safe_substitute()
         script += script_tpl.substitute(prefix=classname, frames=frames,
                                         interval=interval)
