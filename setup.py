@@ -10,7 +10,7 @@ setup(
     version='0.1',
     author='Tommy Allen',
     author_email='tommy@esdf.io',
-    long_description=desc,
+    description=desc,
     packages=find_packages(),
     url='https://github.com/tweekmonster/tmux2html',
     install_requires=[],
