@@ -7,7 +7,7 @@ then parses their contents into HTML.
 
 setup(
     name='tmux2html',
-    version='0.1.3',
+    version='0.1.4',
     author='Tommy Allen',
     author_email='tommy@esdf.io',
     description=desc,
