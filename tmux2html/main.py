@@ -4,10 +4,12 @@ from __future__ import print_function, unicode_literals
 import io
 import os
 import re
+import sys
 import gzip
 import json
 import time
 import argparse
+import tempfile
 import unicodedata
 from string import Template
 
@@ -38,6 +40,7 @@ def load_tpl(filename):
 tpl = load_tpl('main.html')
 pako = load_tpl('pako.html')
 script_tpl = load_tpl('animate.html')
+stream_tpl = load_tpl('stream.html')
 
 
 font_stack = (
@@ -387,16 +390,20 @@ class Renderer(object):
                              pane.size)
             self.chunks.append('</div>')
 
-    def render_pane(self, pane):
+    def render_pane(self, pane, script_reload=False):
         """Render a pane as HTML."""
         self.opened = 0
         self.chunks = []
         self.win_size = pane.size
         self.reset_css()
         self._render_pane(pane)
+        script = ''
+        if script_reload:
+            script = stream_tpl.substitute(prefix=classname,
+                                           interval=script_reload)
         return tpl.substitute(panes=''.join(self.chunks),
                               css=self.render_css(), prefix=classname,
-                              script='', fg=self.rgbhex(self.default_fg),
+                              script=script, fg=self.rgbhex(self.default_fg),
                               bg=self.rgbhex(self.default_bg))
 
     def record(self, pane, interval, duration, window=None, session=None):
@@ -487,21 +494,58 @@ def sil_int(val):
         return 0
 
 
+def atomic_output(output, filename=None, mode=0o0644, quiet=False):
+    if filename:
+        tmp = None
+        try:
+            tmp = tempfile.NamedTemporaryFile(prefix='tmp2html.',
+                                              dir=os.path.dirname(filename),
+                                              delete=False)
+            tmp.write(output.encode('utf8'))
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        except IOError as e:
+            print(e)
+        except Exception:
+            pass
+        finally:
+            if tmp:
+                tmp.close()
+                os.chmod(tmp.name, mode)
+                os.rename(tmp.name, filename)
+                if not quiet:
+                    print('Wrote HTML to: {}'.format(filename))
+    else:
+        print(output.encode('utf8'))
+
+
 def main():
     parser = argparse.ArgumentParser(description='Render tmux panes as HTML')
     parser.add_argument('target', default='', help='Target window or pane')
-    parser.add_argument('-o', '--output', default='', help='Output file')
+    parser.add_argument('-o', '--output', default='', help='Output file, '
+                        'required with --stream')
+    parser.add_argument('-m', '--mode', default='644',
+                        type=lambda x: int(x, 8), help='Output file '
+                        'permissions')
     parser.add_argument('--light', action='store_true', help='Light background')
+    parser.add_argument('--stream', action='store_true',
+                        help='Continuously renders until stopped and adds a '
+                        'script to auto refresh based on --interval')
     parser.add_argument('--interval', default=0.5, type=float,
                         help='Number of seconds between captures')
     parser.add_argument('--duration', default=-1, type=float,
                         help='Number of seconds to capture '
-                        '(0 for indefinite, -1 to disable)')
+                        '(0 for indefinite, -1 to disable, ignored with '
+                        '--stream)')
     parser.add_argument('--fg', type=color_type, default=None,
                         help='Foreground color')
     parser.add_argument('--bg', type=color_type, default=None,
                         help='Background color')
     args = parser.parse_args()
+
+    if args.interval <= 0:
+        print('Interval must be positive non-zero')
+        sys.exit(1)
 
     window = args.target
     pane = None
@@ -538,6 +582,26 @@ def main():
         bg = args.bg
 
     r = Renderer(fg, bg)
+
+    if args.stream:
+        if not args.output:
+            print('Streaming requires an output file', file=sys.stdout)
+            sys.exit(1)
+
+        print('Streaming ({0:0.2f}s) to {1}.\nPress Ctrl-C to stop.'
+              .format(args.interval, args.output))
+        while True:
+            try:
+                target_pane, _ = utils.update_pane_list(target_pane, window,
+                                                        session)
+                output = r.render_pane(target_pane, script_reload=args.interval)
+                atomic_output(output, args.output, quiet=True, mode=args.mode)
+                time.sleep(args.interval)
+            except KeyboardInterrupt:
+                break
+
+        return
+
     if args.duration != -1:
         if args.duration == 0:
             print('Recording indefinitely.  Press Ctrl-C to stop.')
@@ -545,13 +609,8 @@ def main():
             print('Recording for {:0.2f} seconds.  Press Ctrl-C to stop.'
                   .format(args.duration))
         output = r.record(target_pane, args.interval, args.duration, window,
-                          session).encode('utf8')
+                          session)
     else:
-        output = r.render_pane(target_pane).encode('utf8')
+        output = r.render_pane(target_pane)
 
-    if args.output:
-        with open(args.output, 'wb') as fp:
-            fp.write(output)
-        print('Wrote HTML to: {}'.format(args.output))
-    else:
-        print(output)
+    atomic_output(output, args.output, mode=args.mode)
