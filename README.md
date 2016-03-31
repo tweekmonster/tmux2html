@@ -1,5 +1,4 @@
-tmux2html
-=========
+# tmux2html
 
 tmux2html captures full tmux windows or individual panes then parses their
 contents into HTML in living ![color](https://cloud.githubusercontent.com/assets/111942/14111051/2aa0927e-f597-11e5-85d8-e529c803ec61.png).
@@ -9,8 +8,7 @@ With a web server that uses gzip compression, the size over the network is
 negligible for reasonably sized windows or panes.
 
 
-Examples
---------
+## Examples
 
 Some of these may be large in dimensions.  You'll need to zoom out if you want
 to see all panes at once.
@@ -27,8 +25,7 @@ exit, use `Ctrl-]` then type `quit`.  For the Star Wars animation, press
 `Ctrl-]<enter>` to get the prompt.
 
 
-Rationale
----------
+## Rationale
 
 This was a weekend project I made for fun and I have no particular use for it
 beyond annoying my friends about how bad they should feel for not using tmux.
@@ -41,23 +38,20 @@ pane render in elinks within your coworker's session.  The only limit is your
 imagination, my friend. :sparkles:
 
 
-Requirements
-------------
+## Requirements
 
 - tmux 1.8
 - Python 2.7 or 3.4 (could be wrong since it's not tested in lower versions)
 
 
-Installation
-------------
+## Installation
 
 ```shell
 pip install tmux2html
 ```
 
 
-Usage
------
+## Usage
 
 ```shell
 tmux2html 4 -o window_5_in_current_session.html
@@ -65,21 +59,24 @@ tmux2html .0 -o first_pane_in_current_window.html
 tmux2html other:1.2 -o second_window_third_pane_in_other_session.html
 ```
 
-Switch | Description
------- | -----------
-`target` (positional) | Target window or pane.  Uses tmux's target syntax, but always 0-indexed.  (e.g. `sess:1.2` - Session: sess, Window 2, Pane 3.  Default target is window.)
-`-o` / `--output` | Output file.  Prints to stdout if omitted.
-`-m` / `--mode` | Output file permissions.  Default: 644
-`--light` | Light background.
-`--interval` | Number of seconds between captures.
-`--duration` | Number of seconds to capture.  0 for indefinite recording, -1 to disable.
-`--stream` | Continuously renders until stopped and adds a script to auto refresh based on `--interval`.  See the notes below for more info.
-`--fg` | Foreground color.  Can be a color index or R,G,B
-`--bg` | Background color.  Can be a color index or R,G,B
+### Command Line Options
+
+- `target` (positional) - Target window or pane.  Uses tmux's target syntax, but
+  always 0-indexed.  (e.g. `sess:1.2` - Session - sess, Window 2, Pane 3.
+  Default target is window.)
+- `-o`, `--output` -  Output file.  Prints to stdout if omitted.
+- `-m`, `--mode` -  Output file permissions.  Default - 644
+- `--light` -  Light background.
+- `--interval` -  Number of seconds between captures.
+- `--duration` -  Number of seconds to capture.  0 for indefinite recording, -1
+  to disable.
+- `--stream` -  Continuously renders until stopped and adds a script to auto
+  refresh based on `--interval`.  See the notes below for more info.
+- `--fg` -  Foreground color.  Can be a color index or R,G,B
+- `--bg` -  Background color.  Can be a color index or R,G,B
 
 
-Limitations
------------
+## Limitations
 
 - The cursor is not displayed.
 - Basic colors will not match your terminal's configured colors.
@@ -90,8 +87,7 @@ Limitations
 - Your imagination :stars:
 
 
-Notes
------
+## Notes
 
 - Still captures are plain HTML and CSS.
 - Animations use Javascript.
@@ -107,15 +103,13 @@ Notes
   Caveat Emptor.
 
 
-To Do
------
+## To Do
 
 - If there's practical use for animations in the future, only lines that are
   different should be updated to keep the size low.
 
 
-License
--------
+## License
 
 - tmux2html: MIT
 - [pako](https://github.com/nodeca/pako): MIT
