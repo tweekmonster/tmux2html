@@ -11,7 +11,7 @@ negligible for reasonably sized windows or panes.
 ## Examples
 
 Some of these may be large in dimensions.  You'll need to zoom out if you want
-to see all panes at once.
+to see all panes at once.  These are not raster graphics!
 
 - ![Color](https://cloud.githubusercontent.com/assets/111942/14111051/2aa0927e-f597-11e5-85d8-e529c803ec61.png) `[disk: 135KB, gzip: 17KB]`: https://share.esdf.io/FGlV4sufpt/color.html
 - Single Pane `[disk: 65KB, gzip: 6KB]`: https://share.esdf.io/saRkuNriJt/single.html
