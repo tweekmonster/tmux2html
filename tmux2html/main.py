@@ -244,8 +244,6 @@ class Renderer(object):
         def unisub(m):
             c = m.group(1)
             w = 2 if unicodedata.east_asian_width(c) == 'W' else 1
-            if w == 2:
-                self.line_l += 1
             return '<span class="u" data-glyph="&#x{0:x};">{1}</span>' \
                 .format(ord(c), ' ' * w)
 
@@ -264,7 +262,7 @@ class Renderer(object):
             self.chunks.append(self._escape_text(line[:cut]))
             self.chunks.append('\n')
             line = line[cut:]
-            self.line_l = len(line)
+            self.line_l = utils.str_width(line)
             line_c += 1
         return line_c, line
 
@@ -290,8 +288,7 @@ class Renderer(object):
                 if c and last_i == 0 and not self.opened:
                     self.open(cur_fg, cur_bg)
 
-                c_len = len(c)
-                self.line_l += c_len
+                self.line_l += utils.str_width(c)
                 nl, c = self._wrap_line(c, size[0])
                 line_c += nl
 
@@ -310,7 +307,7 @@ class Renderer(object):
                 self.open(cur_fg, cur_bg, m.group(1))
 
             c = line[last_i:]
-            c_len = len(c)
+            c_len = utils.str_width(c)
             self.line_l += c_len
 
             pad = ''

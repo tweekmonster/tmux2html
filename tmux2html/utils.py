@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import sys
 import subprocess
+import unicodedata
 
 from . import tmux_layout
 
@@ -34,6 +35,14 @@ def get_contents(target, full=False):
 
     lines = content.split('\n')
     return '\n'.join(lines)
+
+
+def str_width(s):
+    """Return the width of the string.
+
+    Takes the width of East Asian characters into account
+    """
+    return sum([2 if unicodedata.east_asian_width(c) == 'W' else 1 for c in s])
 
 
 def pane_list(pane, ids=None, list_all=False):
