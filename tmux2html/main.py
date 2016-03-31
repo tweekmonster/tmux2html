@@ -190,7 +190,7 @@ class Renderer(object):
             out.append('su')
         return out
 
-    def open(self, fg, bg, seq=None, tag='span', cls=None):
+    def open(self, fg, bg, seq=None, tag='span', cls=None, styles=None):
         """Opens a tag.
 
         This tracks how many tags are opened so they can all be closed at once
@@ -200,7 +200,10 @@ class Renderer(object):
         if cls:
             classes.append(cls)
 
-        if 7 in self.esc_style:
+        if styles is None:
+            styles = self.esc_style
+
+        if 7 in styles:
             fg, bg = bg, fg
 
         k = self.update_css('f', fg)
@@ -210,9 +213,9 @@ class Renderer(object):
         if k:
             classes.append(k)
 
-        classes.extend(self._style_classes(self.esc_style))
+        classes.extend(self._style_classes(styles))
         if (isinstance(fg, int) and (fg < 16 or fg == 39)) \
-                and 1 in self.esc_style and 'sb' in classes:
+                and 1 in styles and 'sb' in classes:
             classes.remove('sb')
 
         self.opened += 1
@@ -323,7 +326,7 @@ class Renderer(object):
             self.close(closeall=True)
 
             if pad:
-                self.open(None, None, cls='ns')
+                self.open(None, None, cls='ns', styles=[])
                 self.chunks.append(pad)
                 self.close()
 
