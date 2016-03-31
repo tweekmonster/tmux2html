@@ -129,11 +129,7 @@ class Renderer(object):
         """Updates the CSS with a color."""
         if color_code is None:
             return ''
-
-        if prefix == 'f':
-            style = 'color'
-        else:
-            style = 'background-color'
+        style = 'color' if prefix == 'f' else 'background-color'
 
         if isinstance(color_code, int):
             if prefix == 'f' and 1 in self.esc_style and color_code < 8:
@@ -163,13 +159,10 @@ class Renderer(object):
                'background-color:{bg};}}'
                ).format(prefix=classname, **ctx)
 
+        fmt = 'div.{prefix} pre span.{cls} {{{style};}}'
         for k, v in self.css.items():
-            if isinstance(v, (tuple, list)):
-                style = ';'.join(v)
-            else:
-                style = v
-            out += 'div.{prefix} pre span.{cls} {{{style};}}' \
-                .format(prefix=classname, cls=k, style=style)
+            style = ';'.join(v) if isinstance(v, (tuple, list)) else v
+            out += fmt.format(prefix=classname, cls=k, style=style)
         return out
 
     def reset_css(self):
@@ -218,8 +211,8 @@ class Renderer(object):
             classes.append(k)
 
         classes.extend(self._style_classes(self.esc_style))
-        if (isinstance(fg, int) and (fg < 16 or fg == 39)) \
-                and 1 in self.esc_style and 'sb' in classes:
+        if (isinstance(fg, int) and (fg < 16 or fg == 39)
+                and 1 in self.esc_style and 'sb' in classes):
             classes.remove('sb')
 
         self.opened += 1
@@ -253,8 +246,8 @@ class Renderer(object):
             w = 2 if unicodedata.east_asian_width(c) == 'W' else 1
             if w == 2:
                 self.line_l += 1
-            return '<span class="u" data-glyph="&#x{0:x};">{1}</span>' \
-                .format(ord(c), ' ' * w)
+            fmt = '<span class="u" data-glyph="&#x{0:x};">{1}</span>'
+            return fmt.format(ord(c), ' ' * w)
 
         s = escape(s)
         s = re.sub(r'([\u0080-\uffff])', unisub, s)
@@ -355,11 +348,10 @@ class Renderer(object):
 
     def _add_separator(self, vertical, size):
         """Add a separator."""
+        cls = ''
         if vertical:
-            cls = ''
             rep = '<span class="u ns" data-glyph="&#x2500"> </span>'
         else:
-            cls = ''
             rep = '<span class="u ns" data-glyph="&#x2502"> </span>\n'
 
         self.chunks.append('<div class="{} sep"><pre>'.format(cls))
@@ -375,10 +367,8 @@ class Renderer(object):
         by their orientation.
         """
         if pane.panes:
-            if pane.vertical:
-                self.chunks.append('<div class="v">')
-            else:
-                self.chunks.append('<div class="h">')
+            fmt = '<div class="{}">'
+            self.chunks.append(fmt.format('v' if pane.vertical else 'h')
             for i, p in enumerate(pane.panes):
                 if p.x != 0 and p.x > pane.x:
                     self._add_separator(False, p.size[1])
@@ -577,14 +567,14 @@ def main():
     if args.full:
         try:
             if target_pane.panes:
-                raise IncompatibleOptionError('Full history can only target a '
-                                              'pane without splits')
+                msg = 'Full history can only target a pane without splits'
+                raise IncompatibleOptionError(msg)
             if args.duration > 0:
-                raise IncompatibleOptionError('Animation is not allowed in '
-                                              'full history renders')
+                msg = 'Animation is not allowed in full history renders'
+                raise IncompatibleOptionError(msg)
             if args.stream:
-                raise IncompatibleOptionError('Streaming is not allowed in '
-                                              'full history renders')
+                msg = 'Streaming is not allowed in full history renders'
+                raise IncompatibleOptionError(msg)
         except IncompatibleOptionError as e:
             print(e)
             sys.exit(1)
