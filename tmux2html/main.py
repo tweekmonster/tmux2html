@@ -28,6 +28,10 @@ except NameError:
     py_v = 3
 
 
+class IncompatibleOptionError(Exception):
+    pass
+
+
 basedir = os.path.dirname(__file__)
 classname = 'tmux-html'
 
@@ -363,7 +367,7 @@ class Renderer(object):
         self.close()
         self.chunks.append('</pre></div>')
 
-    def _render_pane(self, pane, empty=False):
+    def _render_pane(self, pane, empty=False, full=False):
         """Recursively render a pane as HTML.
 
         Panes without sub-panes are grouped.  Panes with sub-panes are grouped
@@ -386,17 +390,18 @@ class Renderer(object):
             self.chunks.append('<div id="p{}" class="pane" data-size="{}">'
                                .format(pane.identifier, ','.join(map(str_, pane.size))))
             if not empty:
-                self._render(utils.get_contents('%{}'.format(pane.identifier)),
+                self._render(utils.get_contents('%{}'.format(pane.identifier),
+                                                full=full),
                              pane.size)
             self.chunks.append('</div>')
 
-    def render_pane(self, pane, script_reload=False):
+    def render_pane(self, pane, script_reload=False, full=False):
         """Render a pane as HTML."""
         self.opened = 0
         self.chunks = []
         self.win_size = pane.size
         self.reset_css()
-        self._render_pane(pane)
+        self._render_pane(pane, full=full)
         script = ''
         if script_reload:
             script = stream_tpl.substitute(prefix=classname,
@@ -541,6 +546,8 @@ def main():
                         help='Foreground color')
     parser.add_argument('--bg', type=color_type, default=None,
                         help='Background color')
+    parser.add_argument('--full', action='store_true', help='Renders the full '
+                        'history of a single pane')
     args = parser.parse_args()
 
     if args.interval <= 0:
@@ -565,6 +572,21 @@ def main():
     if isinstance(pane, int):
         panes = utils.pane_list(root)
         target_pane = panes[pane]
+
+    if args.full:
+        try:
+            if target_pane.panes:
+                raise IncompatibleOptionError('Full history can only target a '
+                                              'pane without splits')
+            if args.duration > 0:
+                raise IncompatibleOptionError('Animation is not allowed in '
+                                              'full history renders')
+            if args.stream:
+                raise IncompatibleOptionError('Streaming is not allowed in '
+                                              'full history renders')
+        except IncompatibleOptionError as e:
+            print(e)
+            sys.exit(1)
 
     # Dark backgrounds are very common for terminal emulators and porn sites.
     # The use of dark backgrounds for anything else just looks weird.  I was
@@ -611,6 +633,6 @@ def main():
         output = r.record(target_pane, args.interval, args.duration, window,
                           session)
     else:
-        output = r.render_pane(target_pane)
+        output = r.render_pane(target_pane, full=args.full)
 
     atomic_output(output, args.output, mode=args.mode)

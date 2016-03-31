@@ -20,7 +20,7 @@ def shell_cmd(cmd, ignore_error=False):
     return stdout.decode('utf8')
 
 
-def get_contents(target):
+def get_contents(target, full=False):
     """Get the contents of a target pane.
 
     The content is unwrapped lines and may be longer than the pane width.
@@ -28,7 +28,7 @@ def get_contents(target):
     content = shell_cmd([
         'tmux',
         'capture-pane',
-        '-epJS', '-0',
+        '-epJS', '-' if full else '-0',
         '-t', str(target),
     ])
 
