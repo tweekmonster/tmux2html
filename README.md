@@ -67,13 +67,15 @@ tmux2html other:1.2 -o second_window_third_pane_in_other_session.html
 
 Switch | Description
 ------ | -----------
-target (positional) | Target window or pane.  Uses tmux's target syntax, but always 0-indexed.  (e.g. `sess:1.2` - Session: sess, Window 2, Pane 3.  Default target is window.)
--o / --output | Output file.  Prints to stdout if omitted.
---light | Light background.
---interval | Number of seconds between captures.
---duration | Number of seconds to capture.  0 for indefinite recording, -1 to disable.
---fg | Foreground color.  Can be a color index or R,G,B
---bg | Background color.  Can be a color index or R,G,B
+`target` (positional) | Target window or pane.  Uses tmux's target syntax, but always 0-indexed.  (e.g. `sess:1.2` - Session: sess, Window 2, Pane 3.  Default target is window.)
+`-o` / `--output` | Output file.  Prints to stdout if omitted.
+`-m` / `--mode` | Output file permissions.  Default: 644
+`--light` | Light background.
+`--interval` | Number of seconds between captures.
+`--duration` | Number of seconds to capture.  0 for indefinite recording, -1 to disable.
+`--stream` | Continuously renders until stopped and adds a script to auto refresh based on `--interval`.  See the notes below for more info.
+`--fg` | Foreground color.  Can be a color index or R,G,B
+`--bg` | Background color.  Can be a color index or R,G,B
 
 
 Limitations
@@ -91,12 +93,18 @@ Limitations
 Notes
 -----
 
-Still captures are plain HTML and CSS.  Animations uses Javascript.  To keep
-the size reasonable with animations, [pako](https://github.com/nodeca/pako) is
-used to inflate the gzipped frame contents.  Combined with decompression of
-frame content, the animations will use a fair amount of CPU.  So, you shouldn't
-run animations indefinitely on your low performance or battery operated fun
-machines.
+- Still captures are plain HTML and CSS.
+- Animations use Javascript.
+- To keep the size reasonable with animations,
+  [pako](https://github.com/nodeca/pako) is used to inflate the gzipped frame
+  contents.  Combined with decompression of frame content, the animations will
+  use a fair amount of CPU.  So, you shouldn't run animations indefinitely on
+  your low performance or battery operated fun machines.
+- `--stream` doesn't actually "stream", per se.  It keeps writing to the same
+  file and adds a script that reloads the contents.  This can be used to
+  have a live feed of a window or pane.  However, it's not elegant.  If you set
+  the interval to too low, your might unintentionally DDoS your own web server.
+  Caveat Emptor.
 
 
 To Do
