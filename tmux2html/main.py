@@ -129,11 +129,7 @@ class Renderer(object):
         """Updates the CSS with a color."""
         if color_code is None:
             return ''
-
-        if prefix == 'f':
-            style = 'color'
-        else:
-            style = 'background-color'
+        style = 'color' if prefix == 'f' else 'background-color'
 
         if isinstance(color_code, int):
             if prefix == 'f' and 1 in self.esc_style and color_code < 8:
@@ -163,13 +159,10 @@ class Renderer(object):
                'background-color:{bg};}}'
                ).format(prefix=classname, **ctx)
 
+        fmt = 'div.{prefix} pre span.{cls} {{{style};}}'
         for k, v in self.css.items():
-            if isinstance(v, (tuple, list)):
-                style = ';'.join(v)
-            else:
-                style = v
-            out += 'div.{prefix} pre span.{cls} {{{style};}}' \
-                .format(prefix=classname, cls=k, style=style)
+            out += fmt.format(prefix=classname, cls=k,
+                              style=';'.join(v) if isinstance(v, (tuple, list)) else v)
         return out
 
     def reset_css(self):
@@ -355,11 +348,10 @@ class Renderer(object):
 
     def _add_separator(self, vertical, size):
         """Add a separator."""
+        cls = ''
         if vertical:
-            cls = ''
             rep = '<span class="u ns" data-glyph="&#x2500"> </span>'
         else:
-            cls = ''
             rep = '<span class="u ns" data-glyph="&#x2502"> </span>\n'
 
         self.chunks.append('<div class="{} sep"><pre>'.format(cls))
