@@ -101,6 +101,13 @@ tmux2html other:1.2 -o second_window_third_pane_in_other_session.html
   have a live feed of a window or pane.  However, it's not elegant.  If you set
   the interval to too low, your might unintentionally DDoS your own web server.
   Caveat Emptor.
+- The font stack includes [Powerline](https://github.com/powerline/fonts) and
+  [Nerd](https://github.com/ryanoasis/nerd-fonts) fonts because I'm pedantic
+  and want to see those fancy glyphs.  It falls back to `monospace` if you
+  don't have any of those fonts installed.  The caveat: if you have more than
+  one of those fonts installed, the first one in the font stack might not be
+  your favorite and you'll be forced to set your monitor on fire and buy a new
+  one.
 
 
 ## To Do
