@@ -218,7 +218,8 @@ class Renderer(object):
             classes.append(k)
 
         classes.extend(self._style_classes(self.esc_style))
-        if (not fg or fg < 16 or fg == 39) and 1 in self.esc_style and 'sb' in classes:
+        if (isinstance(fg, int) and (fg < 16 or fg == 39)) \
+                and 1 in self.esc_style and 'sb' in classes:
             classes.remove('sb')
 
         self.opened += 1
