@@ -117,6 +117,14 @@ tmux2html other:1.2 -o second_window_third_pane_in_other_session.html
   different should be updated to keep the size low.
 
 
+## Similar Projects
+
+- [gotty](https://github.com/yudai/gotty) - Share your terminal as a web
+  application
+- [asciinema](https://github.com/asciinema/asciinema) - Terminal session
+  recorder
+
+
 ## License
 
 - tmux2html: MIT
