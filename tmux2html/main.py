@@ -161,7 +161,8 @@ class Renderer(object):
 
         fmt = 'div.{prefix} pre span.{cls} {{{style};}}'
         style = ';'.join(v) if isinstance(v, (tuple, list)) else v
-        return ''.join(fmt.format(prefix=classname, cls=k, style=style))
+        return ''.join(fmt.format(prefix=classname, cls=k, style=style)
+                       for k, v in self.css.items())
 
     def reset_css(self):
         """Reset the CSS to the default state."""
