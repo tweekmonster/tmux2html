@@ -107,9 +107,128 @@ font_stack = (
 )
 
 
+class ChunkedLine(object):
+    def __init__(self, renderer, width=0):
+        self.renderer = renderer
+        self.width = width
+        self.length = 0
+        self.chunks = []
+        self.tag_stack = []
+
+    def _style_classes(self, styles):
+        """Set an equivalent CSS style."""
+        out = []
+        if 1 in styles and 22 not in styles:
+            # Bold
+            out.append('sb')
+        if 3 in styles and 23 not in styles:
+            # Italic
+            out.append('si')
+        if 4 in styles and 24 not in styles:
+            # Underline
+            out.append('su')
+        return out
+
+    def _escape_text(self, s):
+        """Escape text
+
+        In addition to escaping text, unicode characters are replaced with a
+        span that will display the glyph using CSS.  This is to ensure that the
+        text has a consistent width.
+        """
+        def unisub(m):
+            c = m.group(1)
+            w = utils.str_width(c)
+            return '<span class="u" data-glyph="&#x{0:x};">{1}</span>' \
+                .format(ord(c), ' ' * w)
+
+        return re.sub(r'([\u0080-\uffff])', unisub, escape(s))
+
+    def open_tag(self, fg, bg, seq=None, tag='span', cls=None, styles=None):
+        """Opens a tag.
+
+        This tracks how many tags are opened so they can all be closed at once
+        if needed.
+        """
+        classes = []
+        if cls:
+            classes.append(cls)
+
+        if styles is None:
+            styles = self.renderer.esc_style
+
+        if 7 in styles:
+            fg, bg = bg, fg
+
+        k = self.renderer.update_css('f', fg)
+        if k:
+            classes.append(k)
+        k = self.renderer.update_css('b', bg)
+        if k:
+            classes.append(k)
+
+        classes.extend(self._style_classes(styles))
+        if (isinstance(fg, int) and (fg < 16 or fg == 39)) \
+                and 1 in styles and 'sb' in classes:
+            # Don't actually bold the basic colors since "bold" means to
+            # brighten the color.
+            classes.remove('sb')
+
+        attrs = []
+        if classes:
+            attrs.append('class="{0}"'.format(' '.join(classes)))
+        if seq:
+            attrs.append('data-seq="{0}"'.format(seq))
+
+        self.tag_stack.append(tag)
+        self.chunks.append('<{tag} {attrs}>'.format(tag=tag,
+                                                    attrs=' '.join(attrs)))
+
+    def close_tag(self):
+        """Closes a tag."""
+        if self.tag_stack:
+            tag = self.tag_stack.pop()
+            self.chunks.append('</{}>'.format(tag))
+
+    def add_text(self, s):
+        """Add text to the line.
+
+        If the added text is longer than self.width, cut it and return the
+        remaining text.  Since double width characters may be encountered, add
+        up to the width cut the string from there.
+        """
+        remainder = ''
+        for i, c in enumerate(s):
+            cw = utils.str_width(c)
+            if self.length + cw > self.width:
+                s, remainder = s[:i], s[i:]
+                break
+            self.length += cw
+        self.chunks.append(self._escape_text(s))
+        return remainder
+
+    def finalize(self):
+        """Finalize the chunked line.
+
+        Padding is added if the length is under self.width.
+        """
+        while self.tag_stack:
+            self.close_tag()
+
+        if self.length < self.width:
+            self.open_tag(None, None, cls='ns', styles=None)
+            self.chunks.append(' ' * (self.width - self.length))
+            self.close_tag()
+
+        return ''.join(self.chunks)
+
+    __str__ = finalize
+    __unicode__ = __str__
+
+
 class Renderer(object):
     opened = 0
-    chunks = []
+    lines = []
     css = {}
     esc_style = []
 
@@ -179,96 +298,6 @@ class Renderer(object):
             ],
         }
 
-    def _style_classes(self, styles):
-        """Set an equivalent CSS style."""
-        out = []
-        if 1 in styles and 22 not in styles:
-            out.append('sb')
-        if 3 in styles and 23 not in styles:
-            out.append('si')
-        if 4 in styles and 24 not in styles:
-            out.append('su')
-        return out
-
-    def open(self, fg, bg, seq=None, tag='span', cls=None, styles=None):
-        """Opens a tag.
-
-        This tracks how many tags are opened so they can all be closed at once
-        if needed.
-        """
-        classes = []
-        if cls:
-            classes.append(cls)
-
-        if styles is None:
-            styles = self.esc_style
-
-        if 7 in styles:
-            fg, bg = bg, fg
-
-        k = self.update_css('f', fg)
-        if k:
-            classes.append(k)
-        k = self.update_css('b', bg)
-        if k:
-            classes.append(k)
-
-        classes.extend(self._style_classes(styles))
-        if (isinstance(fg, int) and (fg < 16 or fg == 39)) \
-                and 1 in styles and 'sb' in classes:
-            classes.remove('sb')
-
-        self.opened += 1
-        attrs = []
-        if classes:
-            attrs.append('class="{0}"'.format(' '.join(classes)))
-        if seq:
-            attrs.append('data-seq="{0}"'.format(seq))
-        html = '<{tag} {attrs}>'.format(tag=tag, attrs=' '.join(attrs))
-        self.chunks.append(html)
-
-    def close(self, tag='span', closeall=False):
-        """Closes a tag."""
-        if self.opened > 0:
-            if closeall:
-                self.chunks.extend(['</{}>'.format(tag)] * self.opened)
-                self.opened = 0
-            else:
-                self.opened -= 1
-                self.chunks.append('</{}>'.format(tag))
-
-    def _escape_text(self, s):
-        """Escape text
-
-        In addition to escaping text, unicode characters are replaced with a
-        span that will display the glyph using CSS.  This is to ensure that the
-        text has a consistent width.
-        """
-        def unisub(m):
-            c = m.group(1)
-            w = 2 if unicodedata.east_asian_width(c) == 'W' else 1
-            return '<span class="u" data-glyph="&#x{0:x};">{1}</span>' \
-                .format(ord(c), ' ' * w)
-
-        s = escape(s)
-        s = re.sub(r'([\u0080-\uffff])', unisub, s)
-        return s
-
-    def _wrap_line(self, line, maxlength):
-        """Wrap a line.
-
-        A line is wrapped until it is short enough to fit within the pane.
-        """
-        line_c = 0
-        while self.line_l and self.line_l > maxlength:
-            cut = maxlength - self.line_l
-            self.chunks.append(self._escape_text(line[:cut]))
-            self.chunks.append('\n')
-            line = line[cut:]
-            self.line_l = utils.str_width(line)
-            line_c += 1
-        return line_c, line
-
     def _render(self, s, size):
         """Render the content.
 
@@ -277,74 +306,53 @@ class Renderer(object):
         cur_fg = None
         cur_bg = None
         self.esc_style = []
-        self.chunks.append('<pre>')
+        self.lines.append('<pre>')
 
-        line_c = 0  # Number of lines created
+        chunked_lines = []
+        prev_seq = ''
         lines = s.split('\n')
         for line_i, line in enumerate(lines):
             last_i = 0
             self.line_l = 0
+            chunk = ChunkedLine(self, size[0])
             for m in re.finditer(r'\x1b\[([^m]*)m', line):
                 start, end = m.span()
+                seq = m.group(1)
                 c = line[last_i:start]
 
-                if c and last_i == 0 and not self.opened:
-                    self.open(cur_fg, cur_bg)
-
-                self.line_l += utils.str_width(c)
-                nl, c = self._wrap_line(c, size[0])
-                line_c += nl
-
-                self.chunks.append(self._escape_text(c))
-
-                if last_i == 0:
-                    self.close()
+                if c and last_i == 0 and not chunk.tag_stack:
+                    chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
 
                 last_i = end
 
-                cur_fg, cur_bg = \
-                    color.parse_escape(m.group(1), fg=cur_fg, bg=cur_bg,
-                                       style=self.esc_style)
+                while True:
+                    c = chunk.add_text(c)
+                    if not c:
+                        break
+                    chunked_lines.append(chunk)
+                    chunk = ChunkedLine(self, size[0])
+                    chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
+                chunk.close_tag()
 
-                self.close()
-                self.open(cur_fg, cur_bg, m.group(1))
+                cur_fg, cur_bg = color.parse_escape(seq, fg=cur_fg, bg=cur_bg,
+                                                    style=self.esc_style)
+
+                chunk.open_tag(cur_fg, cur_bg, seq=seq)
+                prev_seq = seq
 
             c = line[last_i:]
-            c_len = utils.str_width(c)
-            self.line_l += c_len
+            if c:
+                if last_i == 0 and not chunk.tag_stack:
+                    chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
+                c = chunk.add_text(c)
+            if chunk.length:
+                chunked_lines.append(chunk)
 
-            pad = ''
-            if c or c_len != size[0]:
-                if not self.opened:
-                    self.open(cur_fg, cur_bg)
-                nl, c = self._wrap_line(c, size[0])
-                if line_c + nl < size[1]:
-                    line_c += nl
-                    pad = ' ' * (size[0] - self.line_l)
+        while len(chunked_lines) < size[1]:
+            chunked_lines.append(ChunkedLine(self, size[0]))
 
-            self.chunks.append(self._escape_text(c))
-            self.close(closeall=True)
-
-            if pad:
-                self.open(None, None, cls='ns', styles=[])
-                self.chunks.append(pad)
-                self.close()
-
-            if c or line_i < len(lines) - 1:
-                self.chunks.append('\n')
-                line_c += 1
-            elif pad and line_i == len(lines) - 1:
-                line_c += 1
-
-        if line_c < size[1]:
-            self.open(None, None, cls='ns')
-            while line_c < size[1]:
-                self.chunks.append(' ' * size[0])
-                self.chunks.append('\n')
-                line_c += 1
-            self.close(closeall=True)
-
-        self.chunks.append('</pre>')
+        self.lines.extend(['<div>{}</div>'.format(x) for x in chunked_lines])
+        self.lines.append('</pre>')
 
     def _add_separator(self, vertical, size):
         """Add a separator."""
@@ -354,11 +362,11 @@ class Renderer(object):
         else:
             rep = '<span class="u ns" data-glyph="&#x2502"> </span>\n'
 
-        self.chunks.append('<div class="{} sep"><pre>'.format(cls))
-        self.open(None, None)
-        self.chunks.append(rep * size)
-        self.close()
-        self.chunks.append('</pre></div>')
+        self.lines.append('<div class="{} sep"><pre>'.format(cls))
+        # self.open(None, None)
+        self.lines.append(rep * size)
+        # self.close()
+        self.lines.append('</pre></div>')
 
     def _render_pane(self, pane, empty=False, full=False):
         """Recursively render a pane as HTML.
@@ -368,9 +376,9 @@ class Renderer(object):
         """
         if pane.panes:
             if pane.vertical:
-                self.chunks.append('<div class="v">')
+                self.lines.append('<div class="v">')
             else:
-                self.chunks.append('<div class="h">')
+                self.lines.append('<div class="h">')
             for i, p in enumerate(pane.panes):
                 if p.x != 0 and p.x > pane.x:
                     self._add_separator(False, p.size[1])
@@ -378,20 +386,20 @@ class Renderer(object):
                     self._add_separator(True, p.size[0])
                 self._render_pane(p, empty)
 
-            self.chunks.append('</div>')
+            self.lines.append('</div>')
         else:
-            self.chunks.append('<div id="p{}" class="pane" data-size="{}">'
-                               .format(pane.identifier, ','.join(map(str_, pane.size))))
+            self.lines.append('<div id="p{}" class="pane" data-size="{}">'
+                              .format(pane.identifier, ','.join(map(str_, pane.size))))
             if not empty:
                 self._render(utils.get_contents('%{}'.format(pane.identifier),
                                                 full=full),
                              pane.size)
-            self.chunks.append('</div>')
+            self.lines.append('</div>')
 
     def render_pane(self, pane, script_reload=False, full=False):
         """Render a pane as HTML."""
         self.opened = 0
-        self.chunks = []
+        self.lines = []
         self.win_size = pane.size
         self.reset_css()
         self._render_pane(pane, full=full)
@@ -399,7 +407,7 @@ class Renderer(object):
         if script_reload:
             script = stream_tpl.substitute(prefix=classname,
                                            interval=script_reload)
-        return tpl.substitute(panes=''.join(self.chunks),
+        return tpl.substitute(panes=''.join(self.lines),
                               css=self.render_css(), prefix=classname,
                               script=script, fg=self.rgbhex(self.default_fg),
                               bg=self.rgbhex(self.default_bg))
@@ -418,13 +426,14 @@ class Renderer(object):
 
                 frame = {}
                 new_pane, new_panes = utils.update_pane_list(pane, window, session)
-                if hash(pane) != hash(new_pane) or hash(tuple(panes)) != hash(tuple(new_panes)):
+                if hash(pane) != hash(new_pane) \
+                        or hash(tuple(panes)) != hash(tuple(new_panes)):
                     changes = {}
                     self.opened = 0
-                    self.chunks = []
+                    self.lines = []
                     self.win_size = new_pane.size
                     self._render_pane(new_pane, empty=True)
-                    containers = ''.join(self.chunks[:])
+                    containers = ''.join(self.lines[:])
                     frames.append({
                         'reset': True,
                         'layout': containers,
@@ -434,12 +443,12 @@ class Renderer(object):
                 panes = new_panes
                 for p in panes:
                     self.opened = 0
-                    self.chunks = []
+                    self.lines = []
                     self.win_size = p.size
                     self._render(utils.get_contents('%{}'.format(p.identifier)),
                                  p.size)
                     add_html = True
-                    p_html = ''.join(self.chunks[:])
+                    p_html = ''.join(self.lines[:])
                     if p.identifier in changes \
                             and changes[p.identifier] == p_html:
                         add_html = False
