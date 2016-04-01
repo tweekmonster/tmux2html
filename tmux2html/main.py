@@ -160,8 +160,8 @@ class Renderer(object):
                ).format(prefix=classname, **ctx)
 
         fmt = 'div.{prefix} pre span.{cls} {{{style};}}'
-        style = ';'.join(v) if isinstance(v, (tuple, list)) else v
-        return ''.join(fmt.format(prefix=classname, cls=k, style=style)
+        return ''.join(fmt.format(prefix=classname, cls=k,
+                                  style=';'.join(v) if isinstance(v, (tuple, list)) else v)
                        for k, v in self.css.items())
 
     def reset_css(self):
