@@ -378,20 +378,6 @@ class Renderer(object):
         self.lines.extend(['<div>{}</div>'.format(x) for x in chunked_lines])
         self.lines.append('</pre>')
 
-    def _add_separator(self, vertical, size):
-        """Add a separator."""
-        cls = ''
-        if vertical:
-            rep = '<span class="u ns" data-glyph="&#x2500"> </span>'
-        else:
-            rep = '<span class="u ns" data-glyph="&#x2502"> </span>\n'
-
-        self.lines.append('<div class="{} sep"><pre>'.format(cls))
-        # self.open(None, None)
-        self.lines.append(rep * size)
-        # self.close()
-        self.lines.append('</pre></div>')
-
     def _render_pane(self, pane, empty=False, full=False):
         """Recursively render a pane as HTML.
 
@@ -405,9 +391,9 @@ class Renderer(object):
                 self.lines.append('<div class="h">')
             for i, p in enumerate(pane.panes):
                 if p.x != 0 and p.x > pane.x:
-                    self._add_separator(False, p.size[1])
+                    self.lines.append(Separator(self, p.size, False))
                 if p.y != 0 and p.y > pane.y:
-                    self._add_separator(True, p.size[0])
+                    self.lines.append(Separator(self, p.size, True))
                 self._render_pane(p, empty)
 
             self.lines.append('</div>')
@@ -431,7 +417,7 @@ class Renderer(object):
         if script_reload:
             script = stream_tpl.substitute(prefix=classname,
                                            interval=script_reload)
-        return tpl.substitute(panes=''.join(self.lines),
+        return tpl.substitute(panes=''.join(str_(x) for x in self.lines),
                               css=self.render_css(), prefix=classname,
                               script=script, fg=self.rgbhex(self.default_fg),
                               bg=self.rgbhex(self.default_bg))
