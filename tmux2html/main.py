@@ -136,13 +136,18 @@ class ChunkedLine(object):
         span that will display the glyph using CSS.  This is to ensure that the
         text has a consistent width.
         """
-        def unisub(m):
-            c = m.group(1)
+        tpl = ('<span class="u"><span class="g">&#x{0:x};</span>'
+               '<span class="ns">{1}</span></span>')
+        out = ''
+        for c in s:
             w = utils.str_width(c)
-            return '<span class="u" data-glyph="&#x{0:x};">{1}</span>' \
-                .format(ord(c), ' ' * w)
-
-        return re.sub(r'([\u0080-\uffff])', unisub, escape(s))
+            if unicodedata.category(c) in ('Co', 'Cn', 'So'):
+                out += tpl.format(ord(c), ' ')
+            elif w > 1:
+                out += tpl.format(ord(c), ' ' * w)
+            else:
+                out += escape(c)
+        return out
 
     def open_tag(self, fg, bg, seq=None, tag='span', cls=None, styles=None):
         """Opens a tag.
@@ -226,6 +231,26 @@ class ChunkedLine(object):
     __unicode__ = __str__
 
 
+class Separator(object):
+    def __init__(self, parent, size, vertical=True):
+        self.parent = parent
+        self.size = size
+        self.vertical = vertical
+
+    def __str__(self):
+        if self.vertical:
+            n = self.size[0]
+            rep = ('<span class="u"><span class="g">&#x2500;</span>'
+                   '<span class="ns"> </span></span>')
+        else:
+            n = self.size[1]
+            rep = ('<div><span class="u"><span class="g">&#x2502;</span>'
+                   '<span class="ns"> </span></span></div>')
+
+        return '<div class="sep"><pre><span>{}</span></pre></div>' \
+            .format(rep * n)
+
+
 class Renderer(object):
     opened = 0
     lines = []
@@ -287,7 +312,6 @@ class Renderer(object):
     def reset_css(self):
         """Reset the CSS to the default state."""
         self.css = {
-            'su': 'text-decoration:underline',
             'si': 'font-style:italic',
             'sb': 'font-weight:bold',
             'ns': [
