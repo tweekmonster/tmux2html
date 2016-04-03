@@ -107,8 +107,23 @@ font_stack = (
 )
 
 
+class Pane(object):
+    def __init__(self):
+        self.lines = []
+
+    def add_line(self, line):
+        self.lines.append(line)
+
+    def __len__(self):
+        return len(self.lines)
+
+    def __str__(self):
+        return '<pre>{}</pre>'.format(''.join([str_(x) for x in self.lines]))
+
+
 class ChunkedLine(object):
-    def __init__(self, renderer, width=0):
+    def __init__(self, renderer, width=0, line=0):
+        self.line = line
         self.renderer = renderer
         self.width = width
         self.length = 0
@@ -225,7 +240,8 @@ class ChunkedLine(object):
             self.chunks.append(' ' * (self.width - self.length))
             self.close_tag()
 
-        return ''.join(self.chunks)
+        return '<div class="l{0}">{1}</div>'.format(self.line,
+                                                    ''.join(self.chunks))
 
     __str__ = finalize
     __unicode__ = __str__
@@ -323,22 +339,19 @@ class Renderer(object):
         }
 
     def _render(self, s, size):
-        """Render the content.
-
-        Lines are wrapped and padded as needed.
+        """Render the content and return a Pane instance.
         """
         cur_fg = None
         cur_bg = None
         self.esc_style = []
-        self.lines.append('<pre>')
+        pane = Pane()
 
-        chunked_lines = []
         prev_seq = ''
         lines = s.split('\n')
         for line_i, line in enumerate(lines):
             last_i = 0
             self.line_l = 0
-            chunk = ChunkedLine(self, size[0])
+            chunk = ChunkedLine(self, size[0], len(pane))
             for m in re.finditer(r'\x1b\[([^m]*)m', line):
                 start, end = m.span()
                 seq = m.group(1)
@@ -353,8 +366,8 @@ class Renderer(object):
                     c = chunk.add_text(c)
                     if not c:
                         break
-                    chunked_lines.append(chunk)
-                    chunk = ChunkedLine(self, size[0])
+                    pane.add_line(chunk)
+                    chunk = ChunkedLine(self, size[0], len(pane))
                     chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
                 chunk.close_tag()
 
@@ -370,13 +383,12 @@ class Renderer(object):
                     chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
                 c = chunk.add_text(c)
             if chunk.length:
-                chunked_lines.append(chunk)
+                pane.add_line(chunk)
 
-        while len(chunked_lines) < size[1]:
-            chunked_lines.append(ChunkedLine(self, size[0]))
+        while len(pane) < size[1]:
+            pane.add_line(ChunkedLine(self, size[0], len(pane)))
 
-        self.lines.extend(['<div>{}</div>'.format(x) for x in chunked_lines])
-        self.lines.append('</pre>')
+        return pane
 
     def _render_pane(self, pane, empty=False, full=False):
         """Recursively render a pane as HTML.
@@ -401,9 +413,10 @@ class Renderer(object):
             self.lines.append('<div id="p{}" class="pane" data-size="{}">'
                               .format(pane.identifier, ','.join(map(str_, pane.size))))
             if not empty:
-                self._render(utils.get_contents('%{}'.format(pane.identifier),
-                                                full=full),
-                             pane.size)
+                pane = self._render(
+                    utils.get_contents('%{}'.format(pane.identifier),
+                                       full=full), pane.size)
+                self.lines.append(pane)
             self.lines.append('</div>')
 
     def render_pane(self, pane, script_reload=False, full=False):
