@@ -31,7 +31,7 @@ def get_contents(target, full=False):
         'capture-pane',
         '-epJS', '-' if full else '-0',
         '-t', str(target),
-    ])
+    ], ignore_error=True)
 
     lines = content.split('\n')
     return '\n'.join(lines)
@@ -71,12 +71,33 @@ def update_pane_list(pane, window=None, session=None, ignore_error=True):
     shrinking pane when capturing an animation.
     """
     root = get_layout(window, session, ignore_error=ignore_error)
-    panes2 = pane_list(root, list_all=True)
+    panes = pane_list(root, list_all=True)
+    n_pane = pane.copy()
+    n_pane.identifier = -1
+    # n_pane.vertical = False
+    collected = []
+    panes2 = []
+    x = 99999
+    y = 99999
+    x2 = 0
+    y2 = 0
+    for p in panes:
+        if p.is_inside(n_pane) and p.dimensions not in collected:
+            for p2 in pane_list(p, list_all=True):
+                collected.append(p2.dimensions)
+            panes2.append(p)
+            x = min(x, p.x)
+            y = min(y, p.y)
+            x2 = max(x2, p.x2)
+            y2 = max(y2, p.y2)
 
-    for p in panes2:
-        if p.dimensions == pane.dimensions:
-            return p, pane_list(p)
-    return pane, pane_list(pane)
+    n_pane.panes = panes2
+    n_pane.x = x
+    n_pane.y = y
+    n_pane.x2 = x2
+    n_pane.y2 = y2
+    n_pane.size = (n_pane.x2 - n_pane.x, n_pane.y2 - n_pane.y)
+    return n_pane, pane_list(n_pane), tuple(collected)
 
 
 def get_layout(window=None, session=None, ignore_error=False):

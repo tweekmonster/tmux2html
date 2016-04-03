@@ -4,16 +4,48 @@ import re
 
 class Layout(object):
     def __init__(self, x, y, size, identifier=-1, vertical=False):
+        self._depth = -1
+        self.parent = None
         self.x = x
         self.y = y
-        self.identifier = identifier
         self.size = tuple(size)
+        self.x2 = x + self.size[0]
+        self.y2 = y + self.size[1]
+        self.identifier = identifier
         self.vertical = vertical
         self.panes = []
 
+    def copy(self):
+        l = Layout(self.x, self.y, self.size, self.identifier,
+                   vertical=self.vertical)
+        l.parent = self.parent
+        return l
+
+    @property
+    def depth(self):
+        if self._depth == -1:
+            self._depth = 0
+            p = self
+            while p.parent is not None:
+                p = p.parent
+                self._depth += 1
+        return self._depth
+
+    @property
+    def coords(self):
+        return (self.x, self.y)
+
     @property
     def dimensions(self):
-        return (self.x, self.y) + self.size
+        return (self.x, self.y, self.x2, self.y2)
+
+    def is_intersect(self, other):
+        return self.x < other.x2 and self.x2 > other.x \
+            and self.y < other.y2 and self.y2 > other.y
+
+    def is_inside(self, other):
+        return self.x >= other.x and self.y >= other.y \
+            and self.x2 <= other.x2 and self.y2 <= other.y2
 
     def __hash__(self):
         return hash(('layout', self.identifier, self.x, self.y) + self.size)
@@ -22,10 +54,18 @@ class Layout(object):
         return isinstance(other, Layout) \
             and hash(other.identifier) == hash(self.identifier)
 
-    def __repr__(self):
-        return '{}Layout(id:{} x:{} y:{} size:{} panes:[{}])' \
+    def _describe(self, depth=0):
+        out = '  ' * depth
+        pv = '-' if not self.parent else self.parent.vertical
+        out += '{}Layout(id:{} x:{} y:{} x2:{}, y2:{}) (pv: {})\n' \
             .format('Vertical' if self.vertical else 'Horizontal',
-                    self.identifier, self.x, self.y, self.size, self.panes)
+                    self.identifier, self.x, self.y, self.x2, self.y2, pv)
+        for p in self.panes:
+            out += p._describe(depth + 1)
+        return out
+
+    def __repr__(self):
+        return self._describe()
 
 
 def layout_end(layout):

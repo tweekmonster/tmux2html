@@ -9,9 +9,11 @@ import gzip
 import json
 import time
 import argparse
+import binascii
 import tempfile
 import unicodedata
 from string import Template
+from collections import defaultdict
 
 from . import color, utils
 
@@ -246,6 +248,9 @@ class ChunkedLine(object):
     __str__ = finalize
     __unicode__ = __str__
 
+    def __hash__(self):
+        return hash(tuple(self.chunks))
+
 
 class Separator(object):
     def __init__(self, parent, size, vertical=True):
@@ -382,7 +387,7 @@ class Renderer(object):
                 if last_i == 0 and not chunk.tag_stack:
                     chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
                 c = chunk.add_text(c)
-            if chunk.length:
+            if len(pane) < size[1]:
                 pane.add_line(chunk)
 
         while len(pane) < size[1]:
@@ -417,11 +422,12 @@ class Renderer(object):
                     utils.get_contents('%{}'.format(pane.identifier),
                                        full=full), pane.size)
                 self.lines.append(pane)
+            else:
+                self.lines.append('<pre></pre>')
             self.lines.append('</div>')
 
     def render_pane(self, pane, script_reload=False, full=False):
         """Render a pane as HTML."""
-        self.opened = 0
         self.lines = []
         self.win_size = pane.size
         self.reset_css()
@@ -439,7 +445,10 @@ class Renderer(object):
         panes = []
         frames = []
         start = time.time()
-        changes = {}
+        changes = defaultdict(dict)
+        frame = defaultdict(dict)
+        last_frame = start
+        frame_sizes = tuple()
 
         while True:
             try:
@@ -447,56 +456,84 @@ class Renderer(object):
                 if duration and n - start >= duration:
                     break
 
-                frame = {}
-                new_pane, new_panes = utils.update_pane_list(pane, window, session)
-                if hash(pane) != hash(new_pane) \
+                frame.clear()
+                new_pane, new_panes, new_frame_sizes = \
+                    utils.update_pane_list(pane, window, session, ignore_error=True)
+
+                if pane.dimensions != new_pane.dimensions \
+                        or frame_sizes != new_frame_sizes \
                         or hash(tuple(panes)) != hash(tuple(new_panes)):
-                    changes = {}
-                    self.opened = 0
-                    self.lines = []
+                    changes.clear()
+                    self.lines[:] = []
                     self.win_size = new_pane.size
                     self._render_pane(new_pane, empty=True)
-                    containers = ''.join(self.lines[:])
+                    containers = ''.join(str_(x) for x in self.lines)
                     frames.append({
+                        'delay': 0,
                         'reset': True,
                         'layout': containers,
                     })
 
                 pane = new_pane
                 panes = new_panes
+                frame_sizes = new_frame_sizes
+
                 for p in panes:
                     self.opened = 0
                     self.lines = []
                     self.win_size = p.size
-                    self._render(utils.get_contents('%{}'.format(p.identifier)),
-                                 p.size)
-                    add_html = True
-                    p_html = ''.join(self.lines[:])
-                    if p.identifier in changes \
-                            and changes[p.identifier] == p_html:
-                        add_html = False
+                    content = utils.get_contents('%{}'.format(p.identifier))
+                    if not content:
+                        continue
 
-                    if add_html:
-                        changes[p.identifier] = p_html
-                        frame[p.identifier] = p_html
+                    rendered = self._render(content, p.size)
 
-                frames.append(frame)
+                    if p.dimensions not in changes:
+                        changes[p.dimensions] = {}
+
+                    ch_pane = changes.get(p.dimensions)
+                    for lc in rendered.lines:
+                        line_str = str_(lc)
+                        cl = ch_pane.get(lc.line)
+                        if cl is None or cl != line_str:
+                            ch_pane[lc.line] = line_str
+                            frame[p.identifier][lc.line] = line_str
+
+                if frame:
+                    frames.append({
+                        'delay': n - last_frame,
+                        'lines': frame.copy(),
+                    })
+                    last_frame = n
                 time.sleep(interval)
             except KeyboardInterrupt:
                 break
 
-        bscript = io.BytesIO()
-        with gzip.GzipFile(fileobj=bscript, mode='w') as fp:
-            fp.write(json.dumps(frames).encode('utf8'))
+        # Close the loop
+        if len(frames) > 2:
+            n = time.time()
+            frames.append({
+                'delay': n - last_frame,
+                'reset': True,
+                'layout': frames[0].get('layout'),
+            })
+            frame.clear()
 
-        if py_v < 3:
-            frames = '[{}]'.format(','.join([str_(ord(x)) for x in
-                                             bscript.getvalue()]))
-        else:
-            frames = '[{}]'.format(','.join([str_(x) for x in
-                                             bscript.getvalue()]))
+        bscript = io.BytesIO()
+        json_str = json.dumps(frames)
+        with gzip.GzipFile(fileobj=bscript, mode='w') as fp:
+            fp.write(json_str.encode('utf8'))
+
+        frames = binascii.hexlify(bscript.getvalue()).decode('utf8')
+        print('Frame size:', len(frames))
+        data_lines = []
+        line_len = 200
+        for i in range(0, len(frames), line_len):
+            data_lines.append('"{}"'.format(frames[i:i+line_len]))
+
+        frames = '\n  + '.join(data_lines)
         script = pako.safe_substitute()
-        script += script_tpl.substitute(prefix=classname, frames=frames,
+        script += script_tpl.substitute(prefix=classname, frame_bytes=frames,
                                         interval=interval)
         return tpl.substitute(panes='', css=self.render_css(),
                               prefix=classname, script=script,
@@ -637,12 +674,17 @@ def main():
 
         print('Streaming ({0:0.2f}s) to {1}.\nPress Ctrl-C to stop.'
               .format(args.interval, args.output))
+        target_panes = []
+        target_frame_sizes = tuple()
         while True:
             try:
-                target_pane, _ = utils.update_pane_list(target_pane, window,
-                                                        session)
-                output = r.render_pane(target_pane, script_reload=args.interval)
-                atomic_output(output, args.output, quiet=True, mode=args.mode)
+                new_pane, new_panes, new_frame_sizes = \
+                    utils.update_pane_list(target_pane, window, session)
+                if target_pane.dimensions != new_pane.dimensions \
+                        or target_frame_sizes != new_frame_sizes \
+                        or hash(tuple(target_panes)) != hash(tuple(new_panes)):
+                    output = r.render_pane(target_pane, script_reload=args.interval)
+                    atomic_output(output, args.output, quiet=True, mode=args.mode)
                 time.sleep(args.interval)
             except KeyboardInterrupt:
                 break
