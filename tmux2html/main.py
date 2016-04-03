@@ -500,8 +500,9 @@ class Renderer(object):
                             frame[p.identifier][lc.line] = line_str
 
                 if frame:
+                    n += (time.time() - n)
                     frames.append({
-                        'delay': n - last_frame,
+                        'delay': max(0, n - last_frame),
                         'lines': frame.copy(),
                     })
                     last_frame = n
@@ -514,8 +515,6 @@ class Renderer(object):
             n = time.time()
             frames.append({
                 'delay': n - last_frame,
-                'reset': True,
-                'layout': frames[0].get('layout'),
             })
             frame.clear()
 
