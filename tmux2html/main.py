@@ -521,12 +521,17 @@ class Renderer(object):
             frame.clear()
 
         bscript = io.BytesIO()
+        n_frames = len(frames)
         json_str = json.dumps(frames)
+        json_len = len(json_str)
         with gzip.GzipFile(fileobj=bscript, mode='w') as fp:
             fp.write(json_str.encode('utf8'))
 
         frames = binascii.hexlify(bscript.getvalue()).decode('utf8')
-        print('Frame size:', len(frames))
+        compressed_len = len(frames)
+        print(' Frames: {0}, Frame Data: {1} bytes ({2:0.2f}% compressed)'
+              .format(n_frames, compressed_len,
+                      100 - (compressed_len / json_len) * 100))
         data_lines = []
         line_len = 200
         for i in range(0, len(frames), line_len):
