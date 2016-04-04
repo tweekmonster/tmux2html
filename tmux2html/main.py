@@ -368,14 +368,15 @@ class Renderer(object):
 
                 last_i = end
 
-                while True:
-                    c = chunk.add_text(c)
-                    if not c:
-                        break
-                    pane.add_line(chunk)
-                    chunk = ChunkedLine(self, size[0], len(pane))
-                    chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
-                chunk.close_tag()
+                if c:
+                    while True:
+                        c = chunk.add_text(c)
+                        if not c:
+                            break
+                        pane.add_line(chunk)
+                        chunk = ChunkedLine(self, size[0], len(pane))
+                        chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
+                    chunk.close_tag()
 
                 cur_fg, cur_bg = color.parse_escape(seq, fg=cur_fg, bg=cur_bg,
                                                     style=self.esc_style)
