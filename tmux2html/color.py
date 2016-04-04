@@ -90,6 +90,10 @@ def parse_escape(s, fg=None, bg=None, style=None):
                 fg = p - 30
             elif p >= 40 and p <= 47:
                 bg = p - 40
+            elif p >= 90 and p <= 97:
+                fg = (p - 90) + 8
+            elif p >= 100 and p <= 107:
+                bg = (p - 100) + 8
             elif p not in style:
                 if p == 0:
                     style[:] = []
