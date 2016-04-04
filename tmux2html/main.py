@@ -181,6 +181,7 @@ class ChunkedLine(object):
 
         if 7 in styles:
             fg, bg = bg, fg
+            classes.append('r')
 
         k = self.renderer.update_css('f', fg)
         if k:
@@ -238,7 +239,7 @@ class ChunkedLine(object):
             self.close_tag()
 
         if self.length < self.width:
-            self.open_tag(None, None, cls='ns', styles=None)
+            self.open_tag(None, None, cls='ns', styles=[])
             self.chunks.append(' ' * (self.width - self.length))
             self.close_tag()
 
@@ -323,6 +324,8 @@ class Renderer(object):
                'background-color:{bg};}}'
                'div.{prefix} pre span {{color:{fg};'
                'background-color:{bg};}}'
+               'div.{prefix} pre span.r {{color:{bg};'
+               'background-color:{fg};}}'
                ).format(prefix=classname, **ctx)
 
         fmt = 'div.{prefix} pre span.{cls} {{{style};}}'
@@ -368,15 +371,14 @@ class Renderer(object):
 
                 last_i = end
 
-                if c:
-                    while True:
-                        c = chunk.add_text(c)
-                        if not c:
-                            break
-                        pane.add_line(chunk)
-                        chunk = ChunkedLine(self, size[0], len(pane))
-                        chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
-                    chunk.close_tag()
+                while True:
+                    c = chunk.add_text(c)
+                    if not c:
+                        break
+                    pane.add_line(chunk)
+                    chunk = ChunkedLine(self, size[0], len(pane))
+                    chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
+                chunk.close_tag()
 
                 cur_fg, cur_bg = color.parse_escape(seq, fg=cur_fg, bg=cur_bg,
                                                     style=self.esc_style)
@@ -389,6 +391,13 @@ class Renderer(object):
                 if last_i == 0 and not chunk.tag_stack:
                     chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
                 c = chunk.add_text(c)
+                if c:
+                    # I think I missed something above.  Lines should've been
+                    # already wrapped.  Does this occur if there's only one
+                    # escape sequence at the beginning of the line?
+                    pane.add_line(chunk)
+                    chunk = ChunkedLine(self, size[0], len(pane))
+                    chunk.add_text(c)
             if len(pane) < size[1]:
                 pane.add_line(chunk)
 

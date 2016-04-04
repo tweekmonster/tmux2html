@@ -26,12 +26,26 @@ def get_contents(target, full=False):
 
     The content is unwrapped lines and may be longer than the pane width.
     """
+    pos = shell_cmd([
+        'tmux',
+        'display-message',
+        '-p', '-t', str(target),
+        '-F', '#{scroll_position}/#{scroll_region_lower}'
+    ])
+
+    args = ['-S', '-' if full else '-0']
+    if pos:
+        pos, height = pos.split('/')
+        if pos:
+            pos = int(pos) * -1
+            args = ['-S', str(pos), '-E', str(pos + int(height))]
+
     content = shell_cmd([
         'tmux',
         'capture-pane',
-        '-epJS', '-' if full else '-0',
+        '-epJ',
         '-t', str(target),
-    ], ignore_error=True)
+    ] + args, ignore_error=True)
 
     lines = content.split('\n')
     return '\n'.join(lines)
