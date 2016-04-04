@@ -295,16 +295,17 @@ class Renderer(object):
         if color_code is None:
             return ''
         style = 'color' if prefix == 'f' else 'background-color'
-
+        seq_style = self.esc_style
         if isinstance(color_code, int):
-            if prefix == 'f' and 1 in self.esc_style and color_code < 8:
+            if prefix == 'f' and 1 in seq_style and color_code < 8:
                 color_code += 8
+            else:
+                seq_style = None
             key = '{0}{1:d}'.format(prefix, color_code)
         else:
             key = '{0}-rgb_{1}'.format(prefix, '_'.join(map(str_, color_code)))
 
-        self.css[key] = '{0}: {1};'.format(style, self.rgbhex(color_code,
-                                                              self.esc_style))
+        self.css[key] = ':'.join((style, self.rgbhex(color_code, seq_style)))
         return key
 
     def render_css(self):
