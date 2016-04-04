@@ -160,7 +160,7 @@ class ChunkedLine(object):
             w = utils.str_width(c)
             if unicodedata.category(c) in ('Co', 'Cn', 'So'):
                 out += tpl.format(ord(c), ' ')
-            elif w > 1:
+            elif w > 1 or ord(c) > 255:
                 out += tpl.format(ord(c), ' ' * w)
             else:
                 out += escape(c)
