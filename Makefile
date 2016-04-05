@@ -6,11 +6,25 @@ HTML = $(JS:assets/js/%.js=$(TPL_PATH)/%.html)
 STATIC = $(TPL_PATH)/static.html
 CSS = .styles.css
 
-.PHONY: all clean js
+.PHONY: help all clean js
 
+help:		## This help message
+	@echo -e "$$(grep -hE '^\S+:.*##' $(MAKEFILE_LIST) \
+		| sed -e 's/:.*##\s*/:/' -e 's/^\(.\+\):\(.*\)/\\x1b[36m\1\\x1b[m:\2/' \
+		| column -c2 -t -s :)"
+
+all:		## Build everything
 all: $(CSS) $(HTML) $(STATIC)
+	@:
 
-clean:
+watch:	## Grandpa's change monitoring
+	@while [ 1 ]; do \
+		$(MAKE) --no-print-directory all; \
+		sleep 0.5; \
+	done; \
+	true
+
+clean:	## Cleanup
 	rm -f $(HTML) $(CSS) $(STATIC)
 
 $(CSS): assets/base.css
