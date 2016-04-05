@@ -9,10 +9,20 @@ body {
 }
 
 .$prefix pre {
+  position: relative;
   font-size: 10pt;
   font-variant-ligatures: no-common-ligatures;
   margin: 0;
   padding: 0;
+}
+
+.$prefix .pane:hover pre:before {
+  content: attr(data-sp);
+  background-color: #ee2;
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
 }
 
 .$prefix pre > div {
