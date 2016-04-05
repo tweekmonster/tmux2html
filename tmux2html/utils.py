@@ -1,11 +1,25 @@
 # coding: utf8
 from __future__ import print_function
 
+import io
 import sys
+import gzip
 import subprocess
 import unicodedata
+from base64 import b64encode
 
 from . import tmux_layout
+
+
+def compress_data(s, line_len=200):
+    b = io.BytesIO()
+    with gzip.GzipFile(fileobj=b, mode='w') as fp:
+        fp.write(s.encode('utf8'))
+    hunks = []
+    data = b64encode(b.getvalue()).decode('utf8')
+    for i in range(0, len(data), line_len):
+        hunks.append(data[i:i+line_len])
+    return hunks
 
 
 def shell_cmd(cmd, ignore_error=False):
@@ -26,19 +40,23 @@ def get_contents(target, full=False):
 
     The content is unwrapped lines and may be longer than the pane width.
     """
-    pos = shell_cmd([
-        'tmux',
-        'display-message',
-        '-p', '-t', str(target),
-        '-F', '#{scroll_position}/#{scroll_region_lower}'
-    ])
+    if full:
+        args = ['-S', '-', '-E', '-']
+    else:
+        args = ['-S', '-0']
+        pos = shell_cmd([
+            'tmux',
+            'display-message',
+            '-p', '-t', str(target),
+            '-F', '#{scroll_position}/#{scroll_region_lower}'
+        ])
 
-    args = ['-S', '-' if full else '-0']
-    if pos:
-        pos, height = pos.split('/')
         if pos:
-            pos = int(pos) * -1
-            args = ['-S', str(pos), '-E', str(pos + int(height))]
+            pos, height = pos.split('/')
+            if pos:
+                pos = int(pos) * -1
+                height = int(height)
+                args = ['-S', str(pos), '-E', str(pos + height)]
 
     content = shell_cmd([
         'tmux',

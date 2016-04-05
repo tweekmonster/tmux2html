@@ -1,0 +1,29 @@
+{
+  "name": "tmux2html",
+  "version": "9000.0.1",
+  "description": "tmux2html captures full tmux windows or individual panes then parses their contents into HTML in living ![color](https://cloud.githubusercontent.com/assets/111942/14111051/2aa0927e-f597-11e5-85d8-e529c803ec61.png). The output can either be still snapshots, or animated sequences.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tweekmonster/tmux2html.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tweekmonster/tmux2html/issues"
+  },
+  "homepage": "https://github.com/tweekmonster/tmux2html#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "autoprefixer": "^6.3.6",
+    "bundle-collapser": "^1.2.1",
+    "cssnano": "^3.5.2",
+    "pako": "^1.0.1",
+    "postcss": "^5.0.19",
+    "postcss-cli": "^2.5.1",
+    "uglifyjs": "^2.4.10"
+  }
+}

@@ -1,0 +1,76 @@
+body {
+  margin: 0;
+  padding: 0;
+}
+
+.$prefix .pane {
+  display: inline-block;
+  overflow: hidden;
+}
+
+.$prefix pre {
+  font-size: 10pt;
+  font-variant-ligatures: no-common-ligatures;
+  margin: 0;
+  padding: 0;
+}
+
+.$prefix pre > div {
+  line-height: 1;
+}
+
+.$prefix .hs {
+  display: none;
+}
+
+.$prefix pre span {
+  position: relative;
+  display: inline-block;
+  line-height: normal;
+}
+
+.$prefix pre .su:after {
+  content: ' ';
+  line-height: 1.2;
+  display: block;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  border-bottom: 1px solid;
+}
+
+.$prefix .u, .$prefix .u > .g {
+  display: inline-block;
+  position: relative;
+  font-size: inherit;
+  font-style: inherit;
+  font-weight: inherit;
+  line-height: normal;
+  color: inherit;
+  background-color: transparent;
+}
+
+.$prefix .u > .ns {
+  visibility: hidden;
+}
+
+.$prefix .u > .g {
+  color: inherit;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.$prefix .v {
+  display: inline-flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  background-color: $bg;
+}
+
+.$prefix .h {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  background-color: $bg;
+}

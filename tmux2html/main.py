@@ -1,21 +1,17 @@
 # coding: utf8
 from __future__ import print_function, unicode_literals
 
-import io
 import os
 import re
 import sys
-import gzip
 import json
 import time
 import argparse
-import binascii
 import tempfile
 import unicodedata
-from string import Template
 from collections import defaultdict
 
-from . import color, utils
+from . import color, utils, tpl
 
 try:
     from html import escape
@@ -36,17 +32,6 @@ class IncompatibleOptionError(Exception):
 
 basedir = os.path.dirname(__file__)
 classname = 'tmux-html'
-
-
-def load_tpl(filename):
-    with open(os.path.join(basedir, 'tpl', filename), 'rt') as fp:
-        return Template(fp.read())
-
-
-tpl = load_tpl('main.html')
-pako = load_tpl('pako.html')
-script_tpl = load_tpl('animate.html')
-stream_tpl = load_tpl('stream.html')
 
 
 font_stack = (
@@ -110,7 +95,8 @@ font_stack = (
 
 
 class Pane(object):
-    def __init__(self):
+    def __init__(self, size):
+        self.size = size
         self.lines = []
 
     def add_line(self, line):
@@ -120,7 +106,19 @@ class Pane(object):
         return len(self.lines)
 
     def __str__(self):
-        return '<pre>{}</pre>'.format(''.join([str_(x) for x in self.lines]))
+        html_lines = [str_(x) for x in self.lines]
+        if len(self.lines) > self.size[1]:
+            visible = html_lines[-self.size[1]:]
+            hidden = html_lines
+        else:
+            visible = html_lines
+            hidden = []
+
+        out = '<pre>{}</pre>'.format(''.join(visible))
+        if hidden:
+            out += '<script type="text/tmux-data">{}</script>' \
+                .format('\n'.join(utils.compress_data('\n'.join(hidden))))
+        return out
 
 
 class ChunkedLine(object):
@@ -353,10 +351,11 @@ class Renderer(object):
         cur_fg = None
         cur_bg = None
         self.esc_style = []
-        pane = Pane()
+        pane = Pane(size)
 
         prev_seq = ''
         lines = s.split('\n')
+        line_c = len(lines) - 1
         for line_i, line in enumerate(lines):
             last_i = 0
             self.line_l = 0
@@ -376,6 +375,7 @@ class Renderer(object):
                     if not c:
                         break
                     pane.add_line(chunk)
+                    line_c += 1
                     chunk = ChunkedLine(self, size[0], len(pane))
                     chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
                 chunk.close_tag()
@@ -396,14 +396,15 @@ class Renderer(object):
                     # already wrapped.  Does this occur if there's only one
                     # escape sequence at the beginning of the line?
                     pane.add_line(chunk)
+                    line_c += 1
                     chunk = ChunkedLine(self, size[0], len(pane))
+                    chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
                     chunk.add_text(c)
-            if len(pane) < size[1]:
+            if len(pane) < size[1] or (len(lines) > size[1] and len(pane) < line_c):
                 pane.add_line(chunk)
 
-        while len(pane) < size[1]:
+        while len(pane) < size[1] or (len(lines) > size[1] and len(pane) < line_c):
             pane.add_line(ChunkedLine(self, size[0], len(pane)))
-
         return pane
 
     def _render_pane(self, pane, empty=False, full=False):
@@ -422,12 +423,12 @@ class Renderer(object):
                     self.lines.append(Separator(self, p.size, False))
                 if p.y != 0 and p.y > pane.y:
                     self.lines.append(Separator(self, p.size, True))
-                self._render_pane(p, empty)
+                self._render_pane(p, empty, full=full)
 
             self.lines.append('</div>')
         else:
-            self.lines.append('<div id="p{}" class="pane" data-size="{}">'
-                              .format(pane.identifier, ','.join(map(str_, pane.size))))
+            self.lines.append('<div id="p{}" class="pane" data-w="{}" data-h="{}">'
+                              .format(pane.identifier, *pane.size))
             if not empty:
                 pane = self._render(
                     utils.get_contents('%{}'.format(pane.identifier),
@@ -444,13 +445,16 @@ class Renderer(object):
         self.reset_css()
         self._render_pane(pane, full=full)
         script = ''
+        template = 'static.html'
         if script_reload:
-            script = stream_tpl.substitute(prefix=classname,
-                                           interval=script_reload)
-        return tpl.substitute(panes=''.join(str_(x) for x in self.lines),
-                              css=self.render_css(), prefix=classname,
-                              script=script, fg=self.rgbhex(self.default_fg),
-                              bg=self.rgbhex(self.default_bg))
+            template = 'stream.html'
+        elif full and pane.identifier == -1:
+            template = 'scroll.html'
+        return tpl.render(template, panes=''.join(str_(x) for x in self.lines),
+                          css=self.render_css(), prefix=classname,
+                          script=script, fg=self.rgbhex(self.default_fg),
+                          bg=self.rgbhex(self.default_bg), data='',
+                          interval=script_reload)
 
     def record(self, pane, interval, duration, window=None, session=None):
         panes = []
@@ -529,31 +533,22 @@ class Renderer(object):
             })
             frame.clear()
 
-        bscript = io.BytesIO()
-        n_frames = len(frames)
-        json_str = json.dumps(frames)
-        json_len = len(json_str)
-        with gzip.GzipFile(fileobj=bscript, mode='w') as fp:
-            fp.write(json_str.encode('utf8'))
+        str_data = []
 
-        frames = binascii.hexlify(bscript.getvalue()).decode('utf8')
-        compressed_len = len(frames)
-        print(' Frames: {0}, Frame Data: {1} bytes ({2:0.2f}% compressed)'
-              .format(n_frames, compressed_len,
-                      100 - (compressed_len / json_len) * 100))
-        data_lines = []
-        line_len = 200
-        for i in range(0, len(frames), line_len):
-            data_lines.append('"{}"'.format(frames[i:i+line_len]))
+        first, frames = frames[:50], frames[50:]
+        str_data.append('<script type="text/tmux-data">')
+        str_data.extend(utils.compress_data(json.dumps(first)))
+        str_data.append('</script>')
 
-        frames = '\n  + '.join(data_lines)
-        script = pako.safe_substitute()
-        script += script_tpl.substitute(prefix=classname, frame_bytes=frames,
-                                        interval=interval)
-        return tpl.substitute(panes='', css=self.render_css(),
-                              prefix=classname, script=script,
-                              fg=self.rgbhex(self.default_fg),
-                              bg=self.rgbhex(self.default_bg))
+        for i in range(0, len(frames), 500):
+            str_data.append('<script type="text/tmux-data">')
+            str_data.extend(utils.compress_data(json.dumps(frames[i:i+500])))
+            str_data.append('</script>')
+
+        return tpl.render('animation.html', panes='', css=self.render_css(),
+                          prefix=classname, data='\n'.join(str_data),
+                          fg=self.rgbhex(self.default_fg),
+                          bg=self.rgbhex(self.default_bg))
 
 
 def color_type(val):
@@ -652,9 +647,9 @@ def main():
 
     if args.full:
         try:
-            if target_pane.panes:
-                raise IncompatibleOptionError('Full history can only target a '
-                                              'pane without splits')
+            # if target_pane.panes:
+            #     raise IncompatibleOptionError('Full history can only target a '
+            #                                   'pane without splits')
             if args.duration > 0:
                 raise IncompatibleOptionError('Animation is not allowed in '
                                               'full history renders')
@@ -691,6 +686,7 @@ def main():
               .format(args.interval, args.output))
         target_panes = []
         target_frame_sizes = tuple()
+        last_output = ''
         while True:
             try:
                 new_pane, new_panes, new_frame_sizes = \
@@ -699,7 +695,10 @@ def main():
                         or target_frame_sizes != new_frame_sizes \
                         or hash(tuple(target_panes)) != hash(tuple(new_panes)):
                     output = r.render_pane(target_pane, script_reload=args.interval)
-                    atomic_output(output, args.output, quiet=True, mode=args.mode)
+                    if output != last_output:
+                        last_output = output
+                        atomic_output(output, args.output, quiet=True,
+                                      mode=args.mode)
                 time.sleep(args.interval)
             except KeyboardInterrupt:
                 break
