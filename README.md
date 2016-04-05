@@ -75,6 +75,8 @@ tmux2html other:1.2 -o second_window_third_pane_in_other_session.html
 - `--fg` -  Foreground color.  Can be a color index or R,G,B
 - `--bg` -  Background color.  Can be a color index or R,G,B
 - `--full` - Renders the full history of a single pane
+- `--history` - Specifies the maximum number of pane history lines to include
+  (implies `--full`)
 
 
 ## Limitations

@@ -35,13 +35,16 @@ def shell_cmd(cmd, ignore_error=False):
     return stdout.decode('utf8')
 
 
-def get_contents(target, full=False):
+def get_contents(target, full=False, max_lines=0):
     """Get the contents of a target pane.
 
     The content is unwrapped lines and may be longer than the pane width.
     """
     if full:
-        args = ['-S', '-', '-E', '-']
+        if max_lines:
+            args = ['-S', str(-max_lines), '-E', '-']
+        else:
+            args = ['-S', '-', '-E', '-']
     else:
         args = ['-S', '-0']
         pos = shell_cmd([

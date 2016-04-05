@@ -407,7 +407,7 @@ class Renderer(object):
             pane.add_line(ChunkedLine(self, size[0], len(pane)))
         return pane
 
-    def _render_pane(self, pane, empty=False, full=False):
+    def _render_pane(self, pane, empty=False, full=False, max_lines=0):
         """Recursively render a pane as HTML.
 
         Panes without sub-panes are grouped.  Panes with sub-panes are grouped
@@ -423,7 +423,7 @@ class Renderer(object):
                     self.lines.append(Separator(self, p.size, False))
                 if p.y != 0 and p.y > pane.y:
                     self.lines.append(Separator(self, p.size, True))
-                self._render_pane(p, empty, full=full)
+                self._render_pane(p, empty, full=full, max_lines=max_lines)
 
             self.lines.append('</div>')
         else:
@@ -432,18 +432,18 @@ class Renderer(object):
             if not empty:
                 pane = self._render(
                     utils.get_contents('%{}'.format(pane.identifier),
-                                       full=full), pane.size)
+                                       full=full, max_lines=max_lines), pane.size)
                 self.lines.append(pane)
             else:
                 self.lines.append('<pre></pre>')
             self.lines.append('</div>')
 
-    def render_pane(self, pane, script_reload=False, full=False):
+    def render_pane(self, pane, script_reload=False, full=False, max_lines=0):
         """Render a pane as HTML."""
         self.lines = []
         self.win_size = pane.size
         self.reset_css()
-        self._render_pane(pane, full=full)
+        self._render_pane(pane, full=full, max_lines=max_lines)
         script = ''
         template = 'static.html'
         if script_reload:
@@ -599,11 +599,10 @@ def atomic_output(output, filename=None, mode=0o0644, quiet=False):
 def main():
     parser = argparse.ArgumentParser(description='Render tmux panes as HTML')
     parser.add_argument('target', default='', help='Target window or pane')
-    parser.add_argument('-o', '--output', default='', help='Output file, '
-                        'required with --stream')
+    parser.add_argument('-o', '--output', default='',
+                        help='Output file, required with --stream')
     parser.add_argument('-m', '--mode', default='644',
-                        type=lambda x: int(x, 8), help='Output file '
-                        'permissions')
+                        type=lambda x: int(x, 8), help='Output file permissions')
     parser.add_argument('--light', action='store_true', help='Light background')
     parser.add_argument('--stream', action='store_true',
                         help='Continuously renders until stopped and adds a '
@@ -611,15 +610,17 @@ def main():
     parser.add_argument('--interval', default=0.5, type=float,
                         help='Number of seconds between captures')
     parser.add_argument('--duration', default=-1, type=float,
-                        help='Number of seconds to capture '
-                        '(0 for indefinite, -1 to disable, ignored with '
-                        '--stream)')
+                        help='Number of seconds to capture (0 for indefinite, '
+                        '-1 to disable, ignored with --stream)')
     parser.add_argument('--fg', type=color_type, default=None,
                         help='Foreground color')
     parser.add_argument('--bg', type=color_type, default=None,
                         help='Background color')
-    parser.add_argument('--full', action='store_true', help='Renders the full '
-                        'history of a single pane')
+    parser.add_argument('--full', action='store_true',
+                        help='Renders the full history of a single pane')
+    parser.add_argument('--history', type=int, default=0,
+                        help='Specifies the maximum number of pane history '
+                        'lines to include (implies --full)')
     args = parser.parse_args()
 
     if args.interval <= 0:
@@ -644,6 +645,8 @@ def main():
     if isinstance(pane, int):
         panes = utils.pane_list(root)
         target_pane = panes[pane]
+
+    args.full = args.full or args.history > 0
 
     if args.full:
         try:
@@ -714,6 +717,7 @@ def main():
         output = r.record(target_pane, args.interval, args.duration, window,
                           session)
     else:
-        output = r.render_pane(target_pane, full=args.full)
+        output = r.render_pane(target_pane, full=args.full,
+                               max_lines=args.history)
 
     atomic_output(output, args.output, mode=args.mode)
