@@ -16,13 +16,18 @@ body {
   padding: 0;
 }
 
-.$prefix .pane:hover pre:before {
+.$prefix pre:before {
+  opacity: 0.8;
   content: attr(data-sp);
   background-color: #ee2;
   position: absolute;
   top: 0;
   right: 0;
   z-index: 1;
+}
+
+.$prefix .pane:hover pre:before {
+  opacity: 1;
 }
 
 .$prefix pre > div {
