@@ -6,7 +6,7 @@ HTML = $(JS:assets/js/%.js=$(TPL_PATH)/%.html)
 STATIC = $(TPL_PATH)/static.html
 CSS = .styles.css
 
-.PHONY: help all clean js
+.PHONY: help all clean js bump upload
 
 help:		## This help message
 	@echo -e "$$(grep -hE '^\S+:.*##' $(MAKEFILE_LIST) \
@@ -26,6 +26,17 @@ watch:	## Grandpa's change monitoring
 
 clean:	## Cleanup
 	rm -f $(HTML) $(CSS) $(STATIC)
+
+bump:
+	$(eval V := $(shell echo -n "$$(grep 'version=' setup.py | sed -ne "s/.*='\(.\+\)'\,/\1/p")"))
+	$(eval NV := $(shell echo -n "$(V)" | awk -F'.' '{print $$1"."$$2"."$$3+1}'))
+	sed -i -e 's/$(V)/$(NV)/g' setup.py
+	git add setup.py
+	git commit -m "Bump"
+	git tag -a -m 'Auto bumped to $(NV)' $(NV)
+
+upload:
+	python setup.py sdist upload -r pypi
 
 $(CSS): assets/base.css
 	cat $< | postcss --use autoprefixer --autoprefixer.browsers "last 4 versions" --use cssnano > $@
