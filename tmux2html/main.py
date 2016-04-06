@@ -117,7 +117,7 @@ class Pane(object):
         out = '<pre>{}</pre>'.format(''.join(visible))
         if hidden:
             out += '<script type="text/tmux-data">{}</script>' \
-                .format('\n'.join(utils.compress_data('\n'.join(hidden))))
+                .format(''.join(utils.compress_data('\n'.join(hidden))))
         return out
 
 
@@ -536,14 +536,13 @@ class Renderer(object):
         str_data = []
 
         first, frames = frames[:50], frames[50:]
-        str_data.append('<script type="text/tmux-data">')
-        str_data.extend(utils.compress_data(json.dumps(first)))
-        str_data.append('</script>')
+        str_data.append('<script type="text/tmux-data">{}</script>'
+                        .format(''.join(utils.compress_data(json.dumps(first)))))
 
         for i in range(0, len(frames), 500):
-            str_data.append('<script type="text/tmux-data">')
-            str_data.extend(utils.compress_data(json.dumps(frames[i:i+500])))
-            str_data.append('</script>')
+            str_data.append(
+                '<script type="text/tmux-data">{}</script>'
+                .format(''.join(utils.compress_data(json.dumps(frames[i:i+500])))))
 
         return tpl.render('animation.html', panes='', css=self.render_css(),
                           prefix=classname, data='\n'.join(str_data),
