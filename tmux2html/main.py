@@ -95,8 +95,9 @@ font_stack = (
 
 
 class Pane(object):
-    def __init__(self, size):
+    def __init__(self, size, max_lines=0):
         self.size = size
+        self.max_lines = max_lines
         self.lines = []
 
     def add_line(self, line):
@@ -107,7 +108,7 @@ class Pane(object):
 
     def __str__(self):
         html_lines = [str_(x) for x in self.lines]
-        if len(self.lines) > self.size[1]:
+        if self.max_lines and len(self.lines) > self.size[1]:
             visible = html_lines[-self.size[1]:]
             hidden = html_lines
         else:
@@ -345,13 +346,13 @@ class Renderer(object):
             ],
         }
 
-    def _render(self, s, size):
+    def _render(self, s, size, max_lines=0):
         """Render the content and return a Pane instance.
         """
         cur_fg = None
         cur_bg = None
         self.esc_style = []
-        pane = Pane(size)
+        pane = Pane(size, max_lines)
 
         prev_seq = ''
         lines = s.split('\n')
@@ -432,7 +433,8 @@ class Renderer(object):
             if not empty:
                 pane = self._render(
                     utils.get_contents('%{}'.format(pane.identifier),
-                                       full=full, max_lines=max_lines), pane.size)
+                                       full=full, max_lines=max_lines),
+                    pane.size, max_lines=max_lines)
                 self.lines.append(pane)
             else:
                 self.lines.append('<pre></pre>')
@@ -448,7 +450,7 @@ class Renderer(object):
         template = 'static.html'
         if script_reload:
             template = 'stream.html'
-        elif full and pane.identifier == -1:
+        elif full and (pane.identifier == -1 or max_lines):
             template = 'scroll.html'
         return tpl.render(template, panes=''.join(str_(x) for x in self.lines),
                           css=self.render_css(), prefix=classname,
