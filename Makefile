@@ -30,7 +30,7 @@ clean:	## Cleanup
 $(CSS): assets/base.css
 	cat $< | postcss --use autoprefixer --autoprefixer.browsers "last 4 versions" --use cssnano > $@
 
-$(HTML): $(CSS)
+$(HTML): $(CSS) assets/tmux.html
 $(HTML):$(TPL_PATH)/%.html:assets/js/%.js
 	mkdir -p $(@D)
 	cat assets/tmux.html > $@
