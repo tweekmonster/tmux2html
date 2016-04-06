@@ -14,11 +14,18 @@ Some of these may be large in dimensions.  You'll need to zoom out if you want
 to see all panes at once.  These are not raster graphics!
 
 - ![Color](https://cloud.githubusercontent.com/assets/111942/14111051/2aa0927e-f597-11e5-85d8-e529c803ec61.png) `[disk: 135KB, gzip: 17KB]`: https://share.esdf.io/FGlV4sufpt/color.html
-- Single Pane `[disk: 65KB, gzip: 6KB]`: https://share.esdf.io/saRkuNriJt/single.html
-- Full Window (Big) `[disk: 134KB, gzip: 11KB]`: https://share.esdf.io/h5lGMPdcZF/full.html
-- Animated `[disk: 638KB, gzip: 262KB]`: https://share.esdf.io/3qdZm2szkN/animated.html
-- Partially Animated (Big) `[disk: 192KB, gzip: 79KB]`: https://share.esdf.io/EJHQXoIQDT/partial-animated.html
+- Single Pane `[disk: 124KB, gzip: 13KB]`: https://share.esdf.io/oby611JQvB/single.html
+- Full Window (Big) `[disk: 237KB, gzip: 21KB]`: https://share.esdf.io/9t7tgDC4Gf/full.html
+- Animated `[disk: 204KB, gzip: 146KB]`: https://share.esdf.io/sVu5q1xFk9/animated.html
+- Partially Animated (Big) `[disk: 122KB, gzip: 89KB]`: https://share.esdf.io/UNoltIEHt4/partial-animated.html
   (Only some panes are animating)
+- Scrollable pane history `[disk: 83KB, gzip: 47KB]`: https://share.esdf.io/sEDNecDCat/scroll.html
+  (Scroll with the mouse wheel, or two fingers on a touch screen.)
+- Complete pane history `[disk: 63KB, gzip: 18KB]`: https://share.esdf.io/bvn100jhi7/history.html
+- Over kill animation `[disk: 679KB, gzip: 516KB]`: https://share.esdf.io/eSZQheewUL/absurd-animation.html
+  (This animation is recorded using a 10ms interval.  It will not be great on mobile devices.)
+- "Streaming": https://share.esdf.io/log.html
+  (This displays the HTTP log for the links above.)
 
 If you decide to look at the telnet animations yourself and don't know how to
 exit, use `Ctrl-]` then type `quit`.  For the Star Wars animation, press
@@ -84,8 +91,10 @@ tmux2html other:1.2 -o second_window_third_pane_in_other_session.html
 - The cursor is not displayed.
 - Basic colors will not match your terminal's configured colors.
 - Animations aren't perfect with a lot of splits and fast resizing.
-- Animations won't capture scrolling the pane's history (selection mode).
-- In animations, a pane is updated with the full pane's content.
+- ~~Animations won't capture scrolling the pane's history (selection mode).~~
+  Scrolling in the pane's history is now recorded in animations.
+- ~~In animations, a pane is updated with the full pane's content.~~  Only the
+  changed lines are updated on a per-pane basis.
 - Zoomed panes will ruin all the fun.
 - Your imagination :stars:
 
@@ -115,8 +124,8 @@ tmux2html other:1.2 -o second_window_third_pane_in_other_session.html
 
 ## To Do
 
-- If there's practical use for animations in the future, only lines that are
-  different should be updated to keep the size low.
+- ~~If there's practical use for animations in the future, only lines that are
+  different should be updated to keep the size low.~~
 
 
 ## Similar Projects
