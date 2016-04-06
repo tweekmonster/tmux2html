@@ -361,14 +361,11 @@ class Renderer(object):
             last_i = 0
             self.line_l = 0
             chunk = ChunkedLine(self, size[0], len(pane))
+            chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
             for m in re.finditer(r'\x1b\[([^m]*)m', line):
                 start, end = m.span()
                 seq = m.group(1)
                 c = line[last_i:start]
-
-                if c and last_i == 0 and not chunk.tag_stack:
-                    chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
-
                 last_i = end
 
                 while True:
@@ -391,16 +388,15 @@ class Renderer(object):
             if c:
                 if last_i == 0 and not chunk.tag_stack:
                     chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
-                c = chunk.add_text(c)
-                if c:
-                    # I think I missed something above.  Lines should've been
-                    # already wrapped.  Does this occur if there's only one
-                    # escape sequence at the beginning of the line?
+                while True:
+                    c = chunk.add_text(c)
+                    if not c:
+                        break
                     pane.add_line(chunk)
                     line_c += 1
                     chunk = ChunkedLine(self, size[0], len(pane))
                     chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
-                    chunk.add_text(c)
+                chunk.close_tag()
             if len(pane) < size[1] or (len(lines) > size[1] and len(pane) < line_c):
                 pane.add_line(chunk)
 
