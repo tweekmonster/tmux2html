@@ -45,6 +45,21 @@ pane render in elinks within your coworker's session.  The only limit is your
 imagination, my friend. :sparkles:
 
 
+### What people think of tmux2html
+
+> tmux2html 便利そう。
+
+  —[@nakamuray](https://twitter.com/nakamuray/status/717620065303015425)
+
+> aaaaoooooo
+
+  —[@l4utert](https://twitter.com/l4utert/status/718046015908155393)
+
+> 9:39:46 PM Jef Myers: what the fuck is tmux?
+
+  —Jef Myers
+
+
 ## Requirements
 
 - tmux 1.8
@@ -126,6 +141,9 @@ tmux2html other:1.2 -o second_window_third_pane_in_other_session.html
 
 - ~~If there's practical use for animations in the future, only lines that are
   different should be updated to keep the size low.~~
+- Tell people to follow me on Twitter
+  ([@cloudsiphon](https://twitter.com/cloudsiphon)) if they would like to stay
+  up to date on tmux2html, but don't be pushy about it.
 
 
 ## Similar Projects
