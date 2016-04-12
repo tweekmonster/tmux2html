@@ -1,5 +1,5 @@
 # coding: utf8
-from __future__ import print_function, unicode_literals
+from __future__ import print_function, unicode_literals, division
 
 import os
 import re
@@ -20,9 +20,11 @@ except ImportError:
 
 try:
     str_ = unicode
+    chr_ = unichr
     py_v = 2
 except NameError:
     str_ = str
+    chr_ = chr
     py_v = 3
 
 
@@ -92,6 +94,22 @@ font_stack = (
     'Ubuntu Mono derivative Powerline',
     'monofur for Powerline',
 )
+
+# The following table is referenced from:
+# https://en.wikipedia.org/wiki/Talk%3AVT100#Alternate_character_set
+vt100_alt_charset = {
+    'enabled': False,
+    'table': [
+        #    0       1       2       3       4       5       6       7
+        0x25c6, 0x2592, 0x2409, 0x240c, 0x240d, 0x240a, 0x00b0, 0x00b1,
+        #    8       9       A       B       C       D       E       F
+        0x2424, 0x240b, 0x2518, 0x2510, 0x250c, 0x2514, 0x253c, 0x23ba,
+        #    0       1       2       3       4       5       6       7
+        0x23bb, 0x2500, 0x23bc, 0x23bd, 0x251c, 0x2524, 0x2534, 0x252c,
+        #    8       9       A       B       C       D       E       F
+        0x2502, 0x2264, 0x2265, 0x03c0, 0x2260, 0x00a3, 0x00b7, 0x0020
+    ],
+}
 
 
 class Pane(object):
@@ -219,14 +237,30 @@ class ChunkedLine(object):
         remaining text.  Since double width characters may be encountered, add
         up to the width cut the string from there.
         """
+        keep = ''
         remainder = ''
         for i, c in enumerate(s):
+            if ord(c) == 0x0e:
+                # Shift out to alternate character set
+                vt100_alt_charset['enabled'] = True
+                continue
+            elif ord(c) == 0x0f:
+                # Shift back into standard character set
+                vt100_alt_charset['enabled'] = False
+                continue
+            elif vt100_alt_charset['enabled']:
+                x = ord(c) % 16
+                y = ord(c) // 16 - 6
+                if x >= 0 and x < 16 and y >= 0 and y < 2:
+                    c = chr_(vt100_alt_charset['table'][x + (y * 16)])
+
             cw = utils.str_width(c)
             if self.length + cw > self.width:
-                s, remainder = s[:i], s[i:]
+                remainder = s[i:]
                 break
+            keep += c
             self.length += cw
-        self.chunks.append(self._escape_text(s))
+        self.chunks.append(self._escape_text(keep))
         return remainder
 
     def finalize(self):
@@ -427,6 +461,7 @@ class Renderer(object):
             self.lines.append('<div id="p{}" class="pane" data-w="{}" data-h="{}">'
                               .format(pane.identifier, *pane.size))
             if not empty:
+                vt100_alt_charset['enabled'] = False
                 pane = self._render(
                     utils.get_contents('%{}'.format(pane.identifier),
                                        full=full, max_lines=max_lines),
