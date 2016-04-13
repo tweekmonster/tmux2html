@@ -49,15 +49,15 @@ imagination, my friend. :sparkles:
 
 > tmux2html 便利そう。
 
-  —[@nakamuray](https://twitter.com/nakamuray/status/717620065303015425)
+  — [@nakamuray](https://twitter.com/nakamuray/status/717620065303015425)
 
 > aaaaoooooo
 
-  —[@l4utert](https://twitter.com/l4utert/status/718046015908155393)
+  — [@l4utert](https://twitter.com/l4utert/status/718046015908155393)
 
 > 9:39:46 PM Jef Myers: what the fuck is tmux?
 
-  —Jef Myers
+  — Jef Myers
 
 
 ## Requirements

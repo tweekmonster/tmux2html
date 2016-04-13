@@ -36,7 +36,9 @@ bump:
 	git tag -a -m 'Auto bumped to $(NV)' $(NV)
 
 upload:
+	cat README.md | sed 's/@/\\@/' | pandoc -f markdown -t rst > README.rst
 	python setup.py sdist upload -r pypi
+	rm README.rst
 
 $(CSS): assets/base.css
 	cat $< | postcss --use autoprefixer --autoprefixer.browsers "last 4 versions" --use cssnano > $@
