@@ -6,7 +6,7 @@ function setupPane(pane) {
   var hunks = pane.querySelectorAll('script[type="text/tmux-data"]');
   var lines = [];
   for (var i = 0; i < hunks.length; i++) {
-    var data = loadData(hunks[i].innerText);
+    var data = loadData(hunks[i].textContent || hunks[i].innerText);
     lines.push.apply(lines, data.split('\n'));
   }
 

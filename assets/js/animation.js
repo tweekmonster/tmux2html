@@ -9,7 +9,7 @@ function decompress(cb) {
   if (!frag) {
     return;
   }
-  frames.push.apply(frames, JSON.parse(loadData(frag.innerText)));
+  frames.push.apply(frames, JSON.parse(loadData(frag.textContent || frag.innerText)));
   frag.parentNode.removeChild(frag);
   if (!init) {
     init = true;
