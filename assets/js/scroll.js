@@ -57,7 +57,8 @@ function setupPane(pane) {
     }
   }
 
-  pane.addEventListener('mousewheel', function(e) {
+  var wheelEvent = 'onwheel' in pane ? 'wheel' : 'mousewheel';
+  pane.addEventListener(wheelEvent, function(e) {
     e.preventDefault();
     var delta = e.deltaY / lineHeight;
     if (Math.round(delta) === 0) {
