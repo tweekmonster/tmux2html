@@ -19,6 +19,8 @@ function decompress(cb) {
 }
 
 window.tmux = new (function() {
+  var speed = 1;
+
   function nextDelay() {
     if (frames.length < 3) {
       return 0;
@@ -68,15 +70,27 @@ window.tmux = new (function() {
     }
 
     if (!!!no_advance && frames.length > 2) {
-      var n = nextDelay();
+      var n = nextDelay() * 1000;
       if (n) {
         var adj = (new Date()) - d;
-        timerID = setTimeout(nextFrame, (n * 1000) - adj);
+        timerID = setTimeout(nextFrame, (n * speed) - adj);
       }
     }
   }
 
   decompress(nextFrame);
+
+  this.setSpeedMultiplier = function(d) {
+    // This is a multiplier!
+    // 0.5 doubles the speed
+    // 1 is normal speed
+    // 2 is half the speed
+    // etc.
+    if (d <= 0) {
+      return;
+    }
+    speed = d;
+  };
 
   this.stop = function() {
     clearInterval(timerID);
@@ -86,8 +100,21 @@ window.tmux = new (function() {
     nextFrame();
   };
 
-  this.next = function() {
+  this.next = function(n) {
+    // Skips n frames.
     this.stop();
-    nextFrame(true);
+
+    if (isNaN(n) || !n || n < 1) {
+      n = 1;
+    }
+
+    while (n > 0) {
+      nextFrame(true);
+      n--;
+    }
   };
+
+  // Moving backwards is currently not supported due to how frames are built
+  // from the previous frames.  This would need refactoring to add the ability
+  // to move backwards.
 })();
