@@ -557,6 +557,9 @@ class Renderer(object):
                 time.sleep(interval)
             except KeyboardInterrupt:
                 break
+            except Exception as e:
+                print('Stopped recording due to an encountered error: %s' % e)
+                break
 
         # Close the loop
         if len(frames) > 2:

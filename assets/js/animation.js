@@ -50,6 +50,9 @@ window.tmux = new (function() {
     if (fr.lines) {
       for (var id in fr.lines) {
         var container = document.querySelector('#p' + id + ' > pre');
+        if (!container) {
+          continue;
+        }
         if (!container.childNodes.length) {
           var html = '';
           for (var l in fr.lines[id]) {

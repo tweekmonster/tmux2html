@@ -52,7 +52,7 @@ def get_contents(target, full=False, max_lines=0):
             'display-message',
             '-p', '-t', str(target),
             '-F', '#{scroll_position}/#{scroll_region_lower}'
-        ])
+        ], ignore_error=True)
 
         if pos:
             pos, height = pos.split('/')
