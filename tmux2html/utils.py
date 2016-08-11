@@ -72,6 +72,20 @@ def get_contents(target, full=False, max_lines=0):
     return '\n'.join(lines)
 
 
+def get_cursor(target):
+    cmd = ['tmux', 'display-message', '-p', '-t', str(target),
+           '#{pane_active},#{cursor_x},#{cursor_y}']
+    output = shell_cmd(cmd, ignore_error=True)
+    try:
+        output = [int(x) for x in output.split(',')]
+    except ValueError:
+        print(cmd, output)
+        return (-1, -1)
+    if output[0]:
+        return [x for x in output[1:]]
+    return (-1, -1)
+
+
 def str_width(s):
     """Return the width of the string.
 
@@ -140,16 +154,17 @@ def get_layout(window=None, session=None, ignore_error=False):
 
     Defaults to the current session and/or current window.
     """
-    cmd = ['tmux', 'list-windows']
+    cmd = ['tmux', 'list-windows', '-F',
+           '#F,#{window_layout}']
     if session is not None:
         cmd.extend(['-t', str(session)])
     lines = shell_cmd(cmd, ignore_error=ignore_error)
     windows = []
     active = None
     for line in lines.strip().split('\n'):
-        i = line.find('[layout')
-        root = tmux_layout.parse_layout(line[i:].split()[1])
-        if line.endswith('(active)'):
+        flag, layout = line.split(',', 1)
+        root = tmux_layout.parse_layout(layout)
+        if flag == '*':
             root.active = True
             active = root
         windows.append(root)

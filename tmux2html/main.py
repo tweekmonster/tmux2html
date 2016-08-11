@@ -142,12 +142,14 @@ class Pane(object):
 
 class ChunkedLine(object):
     def __init__(self, renderer, width=0, line=0):
+        self.col = renderer.column
         self.line = line
         self.renderer = renderer
         self.width = width
         self.length = 0
         self.chunks = []
         self.tag_stack = []
+        self._curtag_args = []
 
     def _style_classes(self, styles):
         """Set an equivalent CSS style."""
@@ -189,6 +191,8 @@ class ChunkedLine(object):
         This tracks how many tags are opened so they can all be closed at once
         if needed.
         """
+        self._curtag_args = (fg, bg, seq, tag, cls, styles)
+
         classes = []
         if cls:
             classes.append(cls)
@@ -230,6 +234,13 @@ class ChunkedLine(object):
             tag = self.tag_stack.pop()
             self.chunks.append('</{}>'.format(tag))
 
+    def add_cursor(self, c):
+        """Append a cursor to the chunk list."""
+        fg, bg, seq, tag, cls, styles = self._curtag_args
+        self.open_tag(bg, fg, seq, tag, 'cu', styles)
+        self.chunks.append(c)
+        self.close_tag()
+
     def add_text(self, s):
         """Add text to the line.
 
@@ -258,9 +269,24 @@ class ChunkedLine(object):
             if self.length + cw > self.width:
                 remainder = s[i:]
                 break
-            keep += c
+
             self.length += cw
-        self.chunks.append(self._escape_text(keep))
+
+            if self.col + i == self.renderer.cursor_x \
+                    and self.line == self.renderer.cursor_y:
+                self.chunks.append(self._escape_text(keep))
+                self.add_cursor(c)
+                self.renderer.column += len(keep) + 1
+                self.col = self.renderer.column
+                keep = ''
+                continue
+
+            keep += c
+
+        if keep:
+            self.renderer.column += len(keep)
+            self.col = self.renderer.column
+            self.chunks.append(self._escape_text(keep))
         return remainder
 
     def finalize(self):
@@ -273,11 +299,11 @@ class ChunkedLine(object):
 
         if self.length < self.width:
             self.open_tag(None, None, cls='ns', styles=[])
-            self.chunks.append(' ' * (self.width - self.length))
+            self.add_text(' ' * (self.width - self.length))
             self.close_tag()
 
-        return '<div class="l{0}">{1}</div>'.format(self.line,
-                                                    ''.join(self.chunks))
+        text = ''.join(self.chunks)
+        return '<div class="l{0}">{1}</div>'.format(self.line, text)
 
     __str__ = finalize
     __unicode__ = __str__
@@ -352,6 +378,7 @@ class Renderer(object):
             'fonts': ','.join('"{}"'.format(x) for x in font_stack),
             'fg': self.rgbhex(self.default_fg),
             'bg': self.rgbhex(self.default_bg),
+            'prefix': classname,
         }
         out = ('div.{prefix} pre {{font-family:{fonts},monospace;'
                'background-color:{bg};}}'
@@ -359,7 +386,9 @@ class Renderer(object):
                'background-color:{bg};}}'
                'div.{prefix} pre span.r {{color:{bg};'
                'background-color:{fg};}}'
-               ).format(prefix=classname, **ctx)
+               ).format(**ctx)
+        out += ('div.{prefix} pre span.cu{{color:{bg};'
+                'background-color:{fg}}}').format(**ctx)
 
         fmt = 'div.{prefix} pre span.{cls} {{{style};}}'
         for k, v in self.css.items():
@@ -378,6 +407,10 @@ class Renderer(object):
                 '-ms-user-select:none',
                 'user-select:none',
             ],
+            'cu': [
+                'color:{0}'.format(self.default_bg),
+                'background-color:{0}'.format(self.default_fg),
+            ],
         }
 
     def _render(self, s, size, max_lines=0):
@@ -392,8 +425,8 @@ class Renderer(object):
         lines = s.split('\n')
         line_c = len(lines) - 1
         for line_i, line in enumerate(lines):
+            self.column = 0
             last_i = 0
-            self.line_l = 0
             chunk = ChunkedLine(self, size[0], len(pane))
             chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
             for m in re.finditer(r'\x1b\[([^m]*)m', line):
@@ -407,6 +440,7 @@ class Renderer(object):
                     if not c:
                         break
                     pane.add_line(chunk)
+                    self.column = 0
                     line_c += 1
                     chunk = ChunkedLine(self, size[0], len(pane))
                     chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
@@ -427,6 +461,7 @@ class Renderer(object):
                     if not c:
                         break
                     pane.add_line(chunk)
+                    self.column = 0
                     line_c += 1
                     chunk = ChunkedLine(self, size[0], len(pane))
                     chunk.open_tag(cur_fg, cur_bg, seq=prev_seq)
@@ -435,8 +470,13 @@ class Renderer(object):
                 pane.add_line(chunk)
 
         while len(pane) < size[1] or (len(lines) > size[1] and len(pane) < line_c):
+            self.column = 0
             pane.add_line(ChunkedLine(self, size[0], len(pane)))
         return pane
+
+    def _update_cursor(self, pane):
+        self.cursor_x, self.cursor_y = utils.get_cursor(
+            '%{}'.format(pane.identifier))
 
     def _render_pane(self, pane, empty=False, full=False, max_lines=0):
         """Recursively render a pane as HTML.
@@ -462,6 +502,7 @@ class Renderer(object):
                               .format(pane.identifier, *pane.size))
             if not empty:
                 vt100_alt_charset['enabled'] = False
+                self._update_cursor(pane)
                 pane = self._render(
                     utils.get_contents('%{}'.format(pane.identifier),
                                        full=full, max_lines=max_lines),
@@ -534,6 +575,7 @@ class Renderer(object):
                     if not content:
                         continue
 
+                    self._update_cursor(p)
                     rendered = self._render(content, p.size)
 
                     if p.dimensions not in changes:
