@@ -103,7 +103,7 @@ tmux2html other:1.2 -o second_window_third_pane_in_other_session.html
 
 ## Limitations
 
-- The cursor is not displayed.
+- ~~The cursor is not displayed.~~
 - Basic colors will not match your terminal's configured colors.
 - Animations aren't perfect with a lot of splits and fast resizing.
 - ~~Animations won't capture scrolling the pane's history (selection mode).~~
