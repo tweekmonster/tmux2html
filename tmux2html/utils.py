@@ -32,7 +32,12 @@ def shell_cmd(cmd, ignore_error=False):
     if not ignore_error and p.returncode != 0:
         print(stderr.decode('utf8'), file=sys.stderr)
         sys.exit(1)
-    return stdout.decode('utf8')
+    try:
+        ret = stdout.decode('utf8')
+    except UnicodeDecodeError as e:
+        print(e, file=sys.stderr)
+        ret = "…"
+    return ret
 
 
 def get_contents(target, full=False, max_lines=0):
