@@ -1,0 +1,19 @@
+---
+name: Test
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: install node dependencies
+      run: sudo apt install node-postcss node-browserify uglifyjs
+
+    - name: create templates
+      run: make all
+
