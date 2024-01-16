@@ -12,7 +12,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: install node dependencies
-      run: sudo apt install node-postcss node-browserify uglifyjs
+      run: sudo apt install node-postcss-cli node-browserify uglifyjs
 
     - name: create templates
       run: make all
