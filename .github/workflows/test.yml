@@ -1,0 +1,23 @@
+---
+name: Test
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:mantic
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    - name: update repos
+      run: apt-get update
+    - name: install node dependencies
+      run: apt-get install -y node-postcss-cli node-browserify uglifyjs make
+
+    - name: create templates
+      run: make all
+
