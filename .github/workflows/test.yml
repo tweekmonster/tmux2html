@@ -6,7 +6,9 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-mantic
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:mantic
     steps:
     - uses: actions/checkout@v3
       with:
