@@ -14,9 +14,9 @@ jobs:
       with:
         fetch-depth: 0
     - name: update repos
-      run: apt update
+      run: apt-get update
     - name: install node dependencies
-      run: apt install node-postcss-cli node-browserify uglifyjs
+      run: apt-get install -y node-postcss-cli node-browserify uglifyjs
 
     - name: create templates
       run: make all
